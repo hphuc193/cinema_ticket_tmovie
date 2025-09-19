@@ -20,7 +20,6 @@ import 'utils/app_theme.dart';
 import 'screens/settings_screen.dart';
 import 'screens/help_screen.dart';
 import 'providers/theme_provider.dart';
-// import 'screens/my_reviews_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,4 +107,5 @@ class MyApp extends StatelessWidget {
   }
 
 }
+
 
