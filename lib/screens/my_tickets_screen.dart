@@ -509,7 +509,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
 
     // Thử dùng cinema object trước
     if (ticket.cinema != null && ticket.cinema!.name.isNotEmpty) {
-      print('✅ Using cinema object: ${ticket.cinema!.name}');
+      print('Using cinema object: ${ticket.cinema!.name}');
       return ticket.cinema!.name;
     }
 
@@ -520,7 +520,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
           ticketData['cinemaName'] != null) {
         final name = ticketData['cinemaName'].toString().trim();
         if (name.isNotEmpty && name != 'null') {
-          print('✅ Using cinemaName from ticket: $name');
+          print('Using cinemaName from ticket: $name');
           return name;
         }
       }
@@ -528,7 +528,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
       print('Error getting cinemaName: $e');
     }
 
-    print('❌ No cinema info found, returning default');
+    print('No cinema info found, returning default');
     return 'Rạp không xác định';
   }
 
@@ -1038,4 +1038,5 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
         break;
     }
   }
+
 }
