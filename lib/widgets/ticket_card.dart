@@ -119,7 +119,7 @@ class TicketCard extends StatelessWidget {
                 ],
               ),
 
-              // 🔄 QUAN TRỌNG: Cập nhật điều kiện hiển thị nút hủy vé
+              // Cập nhật điều kiện hiển thị nút hủy vé
               // Hiển thị nút hủy cho cả vé pending và completed (chỉ ẩn với cancelled)
               if (onCancel != null) ...[
                 SizedBox(height: 12),
@@ -185,7 +185,7 @@ class TicketCard extends StatelessWidget {
 
     // Thử dùng cinema object trước
     if (ticket.cinema != null && ticket.cinema!.name.isNotEmpty) {
-      print('✅ Using cinema object: ${ticket.cinema!.name}');
+      print('Using cinema object: ${ticket.cinema!.name}');
       return ticket.cinema!.name;
     }
 
@@ -196,7 +196,7 @@ class TicketCard extends StatelessWidget {
           ticketData['cinemaName'] != null) {
         final name = ticketData['cinemaName'].toString().trim();
         if (name.isNotEmpty && name != 'null') {
-          print('✅ Using cinemaName from ticket: $name');
+          print('Using cinemaName from ticket: $name');
           return name;
         }
       }
@@ -251,4 +251,5 @@ class TicketCard extends StatelessWidget {
       ),
     );
   }
+
 }
