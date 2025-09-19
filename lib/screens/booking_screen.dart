@@ -9,7 +9,10 @@ import '../models/movie_model.dart';
 import '../models/cinema_model.dart';
 import '../widgets/seat_selector.dart';
 import 'paypal_checkout_screen.dart'; // Import PayPal screen
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'booking_success_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 class BookingScreen extends StatefulWidget {
   final String movieId;
 
@@ -27,6 +30,8 @@ class _BookingScreenState extends State<BookingScreen> {
   List<Cinema> cinemas = [];
   List<DateTime> availableDates = [];
   List<Showtime> showtimes = [];
+
+  String? _createdTicketId;
 
   DateTime? selectedDate;
   Cinema? selectedCinema;
@@ -1245,9 +1250,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
               // Handle different payment methods
               if (selectedPaymentMethod == 'paypal') {
-                await _processPayPalPayment(context, bookingProvider, authProvider, totalPrice);
+                await _processPayPalPayment(bookingProvider, authProvider, totalPrice);
               } else {
-                await _processBooking(context, bookingProvider, authProvider);
+                await _processBooking(bookingProvider, authProvider);
               }
             },
             style: ElevatedButton.styleFrom(
@@ -1262,7 +1267,6 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _processPayPalPayment(
-      BuildContext context,
       BookingProvider bookingProvider,
       AuthProvider authProvider,
       double totalPrice,
@@ -1270,79 +1274,324 @@ class _BookingScreenState extends State<BookingScreen> {
     try {
       print('Starting PayPal payment process...');
 
-      // Navigate to PayPal checkout screen
-      Navigator.push(
-        context,
+      // QUAN TRỌNG: Backup tất cả state trước khi navigate
+      final backupState = {
+        'movieId': widget.movieId,
+        'movieTitle': movie?.title,
+        'cinemaId': selectedCinema?.id,
+        'cinemaName': selectedCinema?.name,
+        'selectedDate': selectedDate?.toIso8601String(),
+        'showtimeId': selectedShowtime?.id,
+        'showtimeStartTime': selectedShowtime?.startTime.toIso8601String(),
+        'showtimePrice': selectedShowtime?.price,
+        'selectedSeats': List<String>.from(bookingProvider.selectedSeats), // Tạo copy
+        'paymentMethod': selectedPaymentMethod,
+        'totalPrice': totalPrice,
+      };
+
+      print('Backup state: $backupState');
+
+      // Store backup in SharedPreferences hoặc local variable
+      await _storeBackupState(backupState);
+
+      final currentContext = context;
+
+      final result = await Navigator.of(currentContext).push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (context) => PayPalCheckoutScreen(
-            totalAmount: totalPrice, // Amount in VND will be converted to USD
+            totalAmount: totalPrice,
             description: 'Movie ticket booking - ${movie!.title}',
-            onSuccess: (paymentResult) async {
-              print('PayPal payment successful: $paymentResult');
-
-              // Close PayPal screen
-              Navigator.pop(context);
-
-              // Process the booking with PayPal payment info
-              await _processBookingAfterPayment(
-                context,
-                bookingProvider,
-                authProvider,
-                paymentResult,
-              );
+            onSuccess: (paymentResult) {
+              Navigator.of(context).pop(paymentResult);
             },
             onError: (error) {
-              print('PayPal payment error: $error');
-              Navigator.pop(context);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Thanh toán PayPal thất bại: $error'),
-                  backgroundColor: Colors.red,
-                ),
-              );
+              Navigator.of(context).pop({'error': error});
             },
             onCancel: () {
-              print('PayPal payment cancelled');
-              Navigator.pop(context);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Thanh toán đã bị hủy'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
+              Navigator.of(context).pop({'cancelled': true});
             },
           ),
         ),
       );
+
+      if (!mounted) return;
+
+      // Restore state sau khi navigate back
+      await _restoreBackupState(bookingProvider);
+
+      if (result == null) {
+        print('PayPal payment cancelled or dismissed');
+        return;
+      }
+
+      if (result.containsKey('error')) {
+        _showSnackBar('Thanh toán PayPal thất bại: ${result['error']}', Colors.red);
+        return;
+      }
+
+      if (result.containsKey('cancelled')) {
+        _showSnackBar('Thanh toán đã bị hủy', Colors.orange);
+        return;
+      }
+
+      if (result.containsKey('id')) {
+        print('Processing booking with restored state...');
+        await _processBookingAfterPayment(bookingProvider, authProvider, result);
+      }
+
     } catch (e) {
-      print('Error starting PayPal payment: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể khởi tạo thanh toán PayPal: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error in PayPal payment process: $e');
+      if (mounted) {
+        _showSnackBar('Không thể khởi tạo thanh toán PayPal: ${e.toString()}', Colors.red);
+      }
     }
   }
 
+  // 2. Store backup state
+  Future<void> _storeBackupState(Map<String, dynamic> state) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('booking_backup', jsonEncode(state));
+      print('State backed up successfully');
+    } catch (e) {
+      print('Error storing backup state: $e');
+    }
+  }
+
+  // 3. Restore backup state
+  Future<void> _restoreBackupState(BookingProvider bookingProvider) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final backupJson = prefs.getString('booking_backup');
+
+      if (backupJson != null) {
+        final backupState = jsonDecode(backupJson) as Map<String, dynamic>;
+
+        // Restore BookingProvider state
+        if (backupState['selectedSeats'] != null) {
+          final seats = List<String>.from(backupState['selectedSeats']);
+          bookingProvider.selectedSeats.clear();
+          bookingProvider.selectedSeats.addAll(seats);
+          print('Restored ${seats.length} seats: $seats');
+        }
+
+        // Restore local state nếu cần
+        setState(() {
+          if (backupState['selectedDate'] != null) {
+            selectedDate = DateTime.parse(backupState['selectedDate']);
+          }
+          selectedPaymentMethod = backupState['paymentMethod'] ?? 'cash';
+        });
+
+        // Clear backup sau khi restore
+        await prefs.remove('booking_backup');
+        print('State restored and backup cleared');
+      }
+    } catch (e) {
+      print('Error restoring backup state: $e');
+    }
+  }
+
+  // 4. Alternative: Pass seats directly to navigation
+  void _navigateToSuccessScreenSafe(
+      BookingProvider bookingProvider,
+      [Map<String, dynamic>? paymentResult]
+      ) {
+    if (!mounted) return;
+
+    // Lấy seats trực tiếp từ backup hoặc provider
+    List<String> seatsList = [];
+
+    if (bookingProvider.selectedSeats.isNotEmpty) {
+      seatsList = List<String>.from(bookingProvider.selectedSeats);
+    } else {
+      // Fallback: try to get from backup
+      _tryRestoreSeatsFromBackup().then((seats) {
+        if (seats.isNotEmpty) {
+          _performNavigation(seats, bookingProvider, paymentResult);
+        } else {
+          _showErrorDialog(context, 'Không thể khôi phục thông tin ghế đã chọn');
+        }
+      });
+      return;
+    }
+
+    _performNavigation(seatsList, bookingProvider, paymentResult);
+  }
+
+  Future<List<String>> _tryRestoreSeatsFromBackup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final backupJson = prefs.getString('booking_backup');
+
+      if (backupJson != null) {
+        final backupState = jsonDecode(backupJson) as Map<String, dynamic>;
+        if (backupState['selectedSeats'] != null) {
+          return List<String>.from(backupState['selectedSeats']);
+        }
+      }
+    } catch (e) {
+      print('Error restoring seats from backup: $e');
+    }
+    return [];
+  }
+
+  void _performNavigation(
+      List<String> seats,
+      BookingProvider bookingProvider,
+      Map<String, dynamic>? paymentResult
+      ) {
+    if (!mounted || seats.isEmpty) return;
+
+    try {
+      final totalPrice = selectedShowtime != null
+          ? bookingProvider.calculateTotalPrice(seats, selectedShowtime!.price)
+          : 0.0;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => BookingSuccessScreen(
+            movieTitle: movie?.title ?? 'Phim không xác định',
+            cinemaName: selectedCinema?.name ?? 'Rạp không xác định',
+            showDate: selectedDate != null ? _formatDate(selectedDate!) : 'Ngày không xác định',
+            showTime: selectedShowtime != null ? _formatTime(selectedShowtime!.startTime) : 'Giờ không xác định',
+            seats: seats, // Sử dụng seats đã validate
+            totalPrice: totalPrice,
+            paymentMethod: selectedPaymentMethod,
+            ticketId: _createdTicketId,
+          ),
+        ),
+      );
+
+      print('✅ Navigation completed with ${seats.length} seats');
+    } catch (e) {
+      print('❌ Navigation error: $e');
+      if (mounted) {
+        _showErrorDialog(context, 'Có lỗi xảy ra khi chuyển màn hình: ${e.toString()}');
+      }
+    }
+  }
+
+// 5. Cải thiện validation trong _navigateToSuccessScreen
+  void _navigateToSuccessScreenImproved(
+      BookingProvider bookingProvider,
+      [Map<String, dynamic>? paymentResult]
+      ) {
+    if (!mounted) {
+      print('❌ Widget not mounted, cannot navigate');
+      return;
+    }
+
+    print('🎉 NAVIGATING TO SUCCESS SCREEN');
+
+    // Check seats first and try to restore if empty
+    if (bookingProvider.selectedSeats.isEmpty) {
+      print('⚠️ Selected seats is empty, trying to restore...');
+
+      _tryRestoreSeatsFromBackup().then((restoredSeats) {
+        if (restoredSeats.isNotEmpty) {
+          bookingProvider.selectedSeats.addAll(restoredSeats);
+          _performStandardNavigation(bookingProvider, paymentResult);
+        } else {
+          // Last resort: get seats from ticket document
+          if (_createdTicketId != null) {
+            _getSeatsFromTicket(_createdTicketId!).then((ticketSeats) {
+              if (ticketSeats.isNotEmpty) {
+                _performNavigation(ticketSeats, bookingProvider, paymentResult);
+              } else {
+                _showErrorDialog(context, 'Không thể khôi phục thông tin ghế đã chọn');
+              }
+            });
+          } else {
+            _showErrorDialog(context, 'Thông tin ghế đã chọn bị mất. Vui lòng thử lại từ đầu');
+          }
+        }
+      });
+      return;
+    }
+
+    _performStandardNavigation(bookingProvider, paymentResult);
+  }
+
+  void _performStandardNavigation(
+      BookingProvider bookingProvider,
+      Map<String, dynamic>? paymentResult
+      ) {
+    // Validation checks...
+    if (movie == null || selectedCinema == null || selectedDate == null ||
+        selectedShowtime == null || bookingProvider.selectedSeats.isEmpty) {
+      _showErrorDialog(context, 'Thông tin đặt vé không đầy đủ. Vui lòng thử lại từ đầu.');
+      return;
+    }
+
+    _performNavigation(bookingProvider.selectedSeats, bookingProvider, paymentResult);
+  }
+
+  Future<List<String>> _getSeatsFromTicket(String ticketId) async {
+    try {
+      final ticketDoc = await FirebaseFirestore.instance
+          .collection('tickets')
+          .doc(ticketId)
+          .get();
+
+      if (ticketDoc.exists) {
+        final ticketData = ticketDoc.data()!;
+        return List<String>.from(ticketData['seats'] ?? []);
+      }
+    } catch (e) {
+      print('Error getting seats from ticket: $e');
+    }
+    return [];
+  }
+
+
   Future<void> _processBookingAfterPayment(
-      BuildContext context,
       BookingProvider bookingProvider,
       AuthProvider authProvider,
       Map<String, dynamic> paymentResult,
       ) async {
-    if (_isProcessingBooking) return;
+    if (_isProcessingBooking || !mounted) {
+      print('Already processing or widget disposed');
+      return;
+    }
+
+    final currentContext = context;
 
     try {
       setState(() {
         _isProcessingBooking = true;
       });
 
-      print('Processing booking after successful PayPal payment...');
+      print('Processing booking after PayPal payment...');
 
-      final success = await bookingProvider.bookTicket(
+      // Show processing dialog
+      if (mounted) {
+        showDialog(
+          context: currentContext,
+          barrierDismissible: false,
+          builder: (dialogContext) => WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Đang xử lý đặt vé...'),
+                  SizedBox(height: 8),
+                  Text(
+                    'PayPal thanh toán thành công',
+                    style: TextStyle(fontSize: 12, color: Colors.green),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Create booking
+      final ticketId = await bookingProvider.bookTicket(
         userId: authProvider.user!.uid,
         movieId: widget.movieId,
         showtimeId: selectedShowtime!.id,
@@ -1351,31 +1600,371 @@ class _BookingScreenState extends State<BookingScreen> {
           bookingProvider.selectedSeats,
           selectedShowtime!.price,
         ),
-        paymentMethod: 'paypal',
+        paymentMethod: selectedPaymentMethod,
+        // THÊM CÁC DÒNG NÀY:
+        cinemaId: selectedCinema?.id,
+        cinemaName: selectedCinema?.name,
+        movieTitle: movie?.title,
       );
 
-      setState(() {
-        _isProcessingBooking = false;
-      });
+      // Close processing dialog
+      if (mounted) {
+        try {
+          Navigator.of(currentContext).pop();
+        } catch (e) {
+          print('Error closing dialog: $e');
+        }
+      }
 
-      if (!mounted) return;
+      if (!mounted) {
+        print('Widget disposed after booking');
+        return;
+      }
 
-      if (success) {
-        _showSuccessDialog(context, bookingProvider, paymentResult);
+      if (ticketId != null) {
+        _createdTicketId = ticketId;
+        print('Ticket created: $ticketId');
+
+        // Update payment status
+        await _updatePaymentStatusAfterPayPal(ticketId, paymentResult['id']);
+
+        // QUAN TRỌNG: Navigate bằng ticket data thay vì UI state
+        await _navigateWithTicketData(ticketId);
+
       } else {
-        final errorMsg = bookingProvider.errorMessage ?? 'Đặt vé thất bại sau khi thanh toán PayPal thành công. Vui lòng liên hệ hỗ trợ.';
-        _showErrorDialog(context, errorMsg);
+        final errorMsg = bookingProvider.errorMessage ??
+            'Đặt vé thất bại sau khi thanh toán PayPal thành công. Vui lòng liên hệ hỗ trợ.';
+        if (mounted) {
+          _showErrorDialog(currentContext, errorMsg);
+        }
       }
     } catch (e) {
       print('Exception in _processBookingAfterPayment: $e');
 
-      setState(() {
-        _isProcessingBooking = false;
-      });
+      if (mounted) {
+        try {
+          Navigator.of(currentContext).pop();
+        } catch (_) {}
+
+        _showErrorDialog(currentContext, 'Có lỗi xảy ra sau khi thanh toán: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessingBooking = false;
+        });
+      }
+    }
+  }
+  Future<void> _navigateWithTicketData(String ticketId) async {
+    try {
+      print('Fetching ticket data for navigation...');
+
+      final ticketDoc = await FirebaseFirestore.instance
+          .collection('tickets')
+          .doc(ticketId)
+          .get();
+
+      if (!ticketDoc.exists) {
+        throw Exception('Ticket document not found');
+      }
+
+      final ticketData = ticketDoc.data()!;
+      print('Ticket data retrieved: $ticketData');
+
+      // Giờ có thể lấy trực tiếp từ ticket data
+      final movieTitle = ticketData['movieTitle'] ?? 'Phim không xác định';
+      final cinemaName = ticketData['cinemaName'] ?? 'Rạp không xác định';
+      final showDate = ticketData['showDate'] ?? 'Ngày không xác định';
+      final showTime = ticketData['showTime'] ?? 'Giờ không xác định';
 
       if (!mounted) return;
 
-      _showErrorDialog(context, 'Có lỗi xảy ra sau khi thanh toán: ${e.toString()}');
+      print('Final data for navigation:');
+      print('Movie: $movieTitle');
+      print('Cinema: $cinemaName');
+      print('Date: $showDate');
+      print('Time: $showTime');
+
+      // Navigate với data từ ticket
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => BookingSuccessScreen(
+            movieTitle: movieTitle,
+            cinemaName: cinemaName,
+            showDate: showDate,
+            showTime: showTime,
+            seats: List<String>.from(ticketData['seats'] ?? []),
+            totalPrice: (ticketData['totalPrice'] ?? 0.0).toDouble(),
+            paymentMethod: ticketData['paymentMethod'] ?? 'cash',
+            ticketId: ticketId,
+          ),
+        ),
+      );
+
+      print('Navigation completed successfully with ticket data');
+
+    } catch (e) {
+      print('Error navigating with ticket data: $e');
+
+      if (mounted) {
+        // Fallback: navigate với minimal data
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => BookingSuccessScreen(
+              movieTitle: movie?.title ?? 'Đặt vé thành công',
+              cinemaName: selectedCinema?.name ?? 'Rạp chiếu phim',
+              showDate: selectedDate != null ? _formatDate(selectedDate!) : 'Đã đặt',
+              showTime: selectedShowtime != null ? _formatTime(selectedShowtime!.startTime) : 'Đã đặt',
+              seats: ['Vé đã được đặt thành công'],
+              totalPrice: 0.0,
+              paymentMethod: 'paypal',
+              ticketId: ticketId,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updatePaymentStatusAfterPayPal(String ticketId, String paypalPaymentId) async {
+    try {
+      print('Updating payment status for ticket: $ticketId');
+
+      await FirebaseFirestore.instance
+          .collection('tickets')
+          .doc(ticketId)
+          .update({
+        'paymentStatus': 'completed',
+        'paypalPaymentId': paypalPaymentId,
+        'updatedAt': Timestamp.now(),
+      });
+
+      print('Payment status updated successfully');
+    } catch (e) {
+      print('Error updating payment status: $e');
+      // Don't throw error since booking was successful
+    }
+  }
+
+  void _navigateToSuccessScreen(
+      BookingProvider bookingProvider,
+      [Map<String, dynamic>? paymentResult]
+      ) {
+    if (!mounted) {
+      print('❌ Widget not mounted, cannot navigate');
+      return;
+    }
+
+    print('🎉 NAVIGATING TO SUCCESS SCREEN');
+    print('Payment Method: $selectedPaymentMethod');
+    print('Created Ticket ID: $_createdTicketId');
+    print('Payment Result: $paymentResult');
+
+    // Detailed debugging of required data
+    print('=== NAVIGATION DATA DEBUG ===');
+    print('Movie: ${movie?.title ?? "NULL"}');
+    print('Selected Cinema: ${selectedCinema?.name ?? "NULL"}');
+    print('Selected Date: ${selectedDate != null ? _formatDate(selectedDate!) : "NULL"}');
+    print('Selected Showtime: ${selectedShowtime != null ? _formatTime(selectedShowtime!.startTime) : "NULL"}');
+    print('Selected Seats: ${bookingProvider.selectedSeats}');
+    print('Selected Seats Empty: ${bookingProvider.selectedSeats.isEmpty}');
+    print('============================');
+
+    // Check each field individually and provide specific error messages
+    if (movie == null) {
+      print('❌ Movie is null');
+      _showErrorDialog(context, 'Thông tin phim bị mất. Vui lòng thử lại từ đầu.');
+      return;
+    }
+
+    if (selectedCinema == null) {
+      print('❌ Selected cinema is null');
+      _showErrorDialog(context, 'Thông tin rạp chiếu bị mất. Vui lòng thử lại từ đầu.');
+      return;
+    }
+
+    if (selectedDate == null) {
+      print('❌ Selected date is null');
+      _showErrorDialog(context, 'Thông tin ngày chiếu bị mất. Vui lòng thử lại từ đầu.');
+      return;
+    }
+
+    if (selectedShowtime == null) {
+      print('❌ Selected showtime is null');
+      _showErrorDialog(context, 'Thông tin suất chiếu bị mất. Vui lòng thử lại từ đầu.');
+      return;
+    }
+
+    if (bookingProvider.selectedSeats.isEmpty) {
+      print('❌ Selected seats is empty');
+      _showErrorDialog(context, 'Thông tin ghế đã chọn bị mất. Vui lòng thử lại từ đầu.');
+      return;
+    }
+
+    print('✅ All required data validated successfully');
+
+    try {
+      // Calculate total price again to ensure accuracy
+      final totalPrice = bookingProvider.calculateTotalPrice(
+        bookingProvider.selectedSeats,
+        selectedShowtime!.price,
+      );
+
+      print('Total Price: $totalPrice');
+      print('Creating success screen with all validated data...');
+
+      // Create a copy of seats to avoid reference issues
+      final seatsCopy = List<String>.from(bookingProvider.selectedSeats);
+
+      // Use current context for navigation
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) {
+            print('Building BookingSuccessScreen...');
+            return BookingSuccessScreen(
+              movieTitle: movie!.title,
+              cinemaName: selectedCinema!.name,
+              showDate: _formatDate(selectedDate!),
+              showTime: _formatTime(selectedShowtime!.startTime),
+              seats: seatsCopy,
+              totalPrice: totalPrice,
+              paymentMethod: selectedPaymentMethod,
+              ticketId: _createdTicketId,
+            );
+          },
+        ),
+      ).then((_) {
+        print('✅ Navigation completed successfully');
+      }).catchError((error) {
+        print('❌ Navigation error: $error');
+        if (mounted) {
+          _showErrorDialog(context, 'Không thể chuyển tới màn hình thành công: ${error.toString()}');
+        }
+      });
+
+    } catch (e, stackTrace) {
+      print('❌ Exception in _navigateToSuccessScreen: $e');
+      print('Stack trace: $stackTrace');
+      if (mounted) {
+        _showErrorDialog(context, 'Có lỗi xảy ra khi chuyển màn hình: ${e.toString()}');
+      }
+    }
+  }
+
+  // Thêm method để backup và restore state nếu cần
+  void _backupBookingState() {
+    print('🔄 Backing up booking state...');
+
+    // Get BookingProvider instance
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+
+    // Store critical data in temporary variables or SharedPreferences if needed
+    final stateBackup = {
+      'movieId': widget.movieId,
+      'movieTitle': movie?.title,
+      'cinemaId': selectedCinema?.id,
+      'cinemaName': selectedCinema?.name,
+      'selectedDate': selectedDate?.toIso8601String(),
+      'showtimeId': selectedShowtime?.id,
+      'showtimeStartTime': selectedShowtime?.startTime.toIso8601String(),
+      'showtimePrice': selectedShowtime?.price,
+      'selectedSeats': bookingProvider.selectedSeats, // Now bookingProvider is defined
+      'paymentMethod': selectedPaymentMethod,
+      'ticketId': _createdTicketId,
+    };
+    print('Backup data: $stateBackup');
+  }
+
+// Method để force navigate với fallback data
+  void _forceNavigateToSuccess(BookingProvider bookingProvider, [Map<String, dynamic>? paymentResult]) {
+    print('🚨 FORCE NAVIGATE TO SUCCESS - Using fallback data');
+
+    // Try to get ticket info from Firestore if we have ticket ID
+    if (_createdTicketId != null) {
+      _navigateWithTicketId(_createdTicketId!, bookingProvider, paymentResult);
+    } else {
+      // Last resort: navigate with minimal info
+      _navigateWithMinimalData(bookingProvider, paymentResult);
+    }
+  }
+  Future<void> _navigateWithTicketId(String ticketId, BookingProvider bookingProvider, [Map<String, dynamic>? paymentResult]) async {
+    try {
+      print('📋 Fetching ticket data from Firestore...');
+
+      final ticketDoc = await FirebaseFirestore.instance
+          .collection('tickets')
+          .doc(ticketId)
+          .get();
+
+      if (ticketDoc.exists && mounted) {
+        final ticketData = ticketDoc.data()!;
+
+        print('Retrieved ticket data: $ticketData');
+
+        // Use data from ticket document
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => BookingSuccessScreen(
+              movieTitle: movie?.title ?? 'Phim không xác định',
+              cinemaName: selectedCinema?.name ?? 'Rạp không xác định',
+              showDate: selectedDate != null ? _formatDate(selectedDate!) : 'Ngày không xác định',
+              showTime: selectedShowtime != null ? _formatTime(selectedShowtime!.startTime) : 'Giờ không xác định',
+              seats: List<String>.from(ticketData['seats'] ?? []),
+              totalPrice: (ticketData['totalPrice'] ?? 0.0).toDouble(),
+              paymentMethod: ticketData['paymentMethod'] ?? 'cash',
+              ticketId: ticketId,
+            ),
+          ),
+        );
+
+        print('✅ Navigation with ticket data completed');
+      } else {
+        print('❌ Ticket document not found or widget disposed');
+        _navigateWithMinimalData(bookingProvider, paymentResult);
+      }
+    } catch (e) {
+      print('❌ Error fetching ticket data: $e');
+      _navigateWithMinimalData(bookingProvider, paymentResult);
+    }
+  }
+
+  void _navigateWithMinimalData(BookingProvider bookingProvider, [Map<String, dynamic>? paymentResult]) {
+    if (!mounted) return;
+
+    print('🆘 MINIMAL DATA NAVIGATION - Last resort');
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => BookingSuccessScreen(
+          movieTitle: movie?.title ?? 'Đặt vé thành công',
+          cinemaName: selectedCinema?.name ?? 'Rạp chiếu phim',
+          showDate: selectedDate != null ? _formatDate(selectedDate!) : DateTime.now().day.toString() + '/' + DateTime.now().month.toString() + '/' + DateTime.now().year.toString(),
+          showTime: selectedShowtime != null ? _formatTime(selectedShowtime!.startTime) : 'Đã đặt',
+          seats: bookingProvider.selectedSeats.isNotEmpty ? bookingProvider.selectedSeats : ['Ghế đã đặt'],
+          totalPrice: selectedShowtime != null ? bookingProvider.calculateTotalPrice(bookingProvider.selectedSeats, selectedShowtime!.price) : 0.0,
+          paymentMethod: selectedPaymentMethod,
+          ticketId: _createdTicketId,
+        ),
+      ),
+    );
+
+    print('✅ Minimal navigation completed');
+  }
+
+  // Helper methods remain the same
+  void _showSnackBar(String message, Color backgroundColor) {
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: backgroundColor,
+            ),
+          );
+        }
+      });
     }
   }
 
@@ -1404,20 +1993,22 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _processBooking(
-      BuildContext context,
       BookingProvider bookingProvider,
       AuthProvider authProvider,
       ) async {
-    if (_isProcessingBooking) return;
+    if (_isProcessingBooking || !mounted) {
+      print('Already processing or widget disposed');
+      return;
+    }
 
     try {
       setState(() {
         _isProcessingBooking = true;
       });
 
-      print('Starting booking process...');
+      print('Starting regular booking process...');
 
-      final success = await bookingProvider.bookTicket(
+      final ticketId = await bookingProvider.bookTicket(
         userId: authProvider.user!.uid,
         movieId: widget.movieId,
         showtimeId: selectedShowtime!.id,
@@ -1429,124 +2020,65 @@ class _BookingScreenState extends State<BookingScreen> {
         paymentMethod: selectedPaymentMethod,
       );
 
-      print('Booking API call completed. Success: $success');
+      if (!mounted) return;
 
-      setState(() {
-        _isProcessingBooking = false;
-      });
+      if (ticketId != null) {
+        _createdTicketId = ticketId;
+        print('Ticket created successfully: $ticketId');
 
-      if (!mounted) {
-        print('Widget is no longer mounted, cannot show dialog');
-        return;
-      }
-
-      if (success) {
-        print('Showing success dialog');
-        _showSuccessDialog(context, bookingProvider);
+        // Sử dụng ticket data thay vì UI state
+        await _navigateWithTicketData(ticketId);
       } else {
-        print('Showing error dialog');
         final errorMsg = bookingProvider.errorMessage ?? 'Đặt vé thất bại. Vui lòng thử lại.';
         _showErrorDialog(context, errorMsg);
       }
     } catch (e) {
       print('Exception in _processBooking: $e');
-
-      setState(() {
-        _isProcessingBooking = false;
-      });
-
-      if (!mounted) {
-        print('Widget is no longer mounted, cannot show error dialog');
-        return;
+      if (mounted) {
+        _showErrorDialog(context, 'Có lỗi xảy ra: ${e.toString()}');
       }
-
-      _showErrorDialog(context, 'Có lỗi xảy ra: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessingBooking = false;
+        });
+      }
     }
   }
 
-  void _showSuccessDialog(BuildContext context, BookingProvider bookingProvider, [Map<String, dynamic>? paymentResult]) {
-    print('_showSuccessDialog called');
+  // Thêm method check ticket status
+  Future<bool> _checkTicketExists(String ticketId) async {
+    try {
+      final ticketDoc = await FirebaseFirestore.instance
+          .collection('tickets')
+          .doc(ticketId)
+          .get();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 32),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Đặt vé thành công!',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Thông tin đặt vé:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text('• Phim: ${movie!.title}'),
-            Text('• Rạp: ${selectedCinema!.name}'),
-            Text('• Ngày: ${_formatDate(selectedDate!)}'),
-            Text('• Suất: ${_formatTime(selectedShowtime!.startTime)}'),
-            Text('• Ghế: ${bookingProvider.selectedSeats.join(', ')}'),
-            Text('• Tổng tiền: ${bookingProvider.calculateTotalPrice(bookingProvider.selectedSeats, selectedShowtime!.price).toStringAsFixed(0)} VND'),
+      return ticketDoc.exists;
+    } catch (e) {
+      print('Error checking ticket: $e');
+      return false;
+    }
+  }
+  // Debug method để kiểm tra ticket trong database
+  Future<void> _debugTicketStatus() async {
+    if (_createdTicketId != null) {
+      try {
+        final ticketDoc = await FirebaseFirestore.instance
+            .collection('tickets')
+            .doc(_createdTicketId!)
+            .get();
 
-            if (selectedPaymentMethod == 'paypal' && paymentResult != null) ...[
-              SizedBox(height: 8),
-              Text('• Mã giao dịch PayPal: ${paymentResult['id'] ?? 'N/A'}'),
-            ],
-
-            SizedBox(height: 12),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _getPaymentMethodColor().withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _getPaymentMethodColor().withOpacity(0.3)),
-              ),
-              child: Text(
-                _getSuccessMessage(),
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _getPaymentMethodColor().withOpacity(0.8),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _navigateToBookingHistory(context);
-            },
-            child: Text('Xem lịch sử đặt vé'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _navigateToHome(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('Về trang chủ'),
-          ),
-        ],
-      ),
-    );
+        if (ticketDoc.exists) {
+          print('✅ TICKET EXISTS IN DATABASE');
+          print('Ticket data: ${ticketDoc.data()}');
+        } else {
+          print('❌ TICKET NOT FOUND IN DATABASE');
+        }
+      } catch (e) {
+        print('Error checking ticket status: $e');
+      }
+    }
   }
 
   Color _getPaymentMethodColor() {
@@ -1579,9 +2111,12 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  void _showErrorDialog(BuildContext context, String message) {
+  // Updated error dialog method
+  void _showErrorDialog(BuildContext dialogContext, String message) {
+    if (!mounted) return;
+
     showDialog(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
@@ -1596,19 +2131,24 @@ class _BookingScreenState extends State<BookingScreen> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (mounted) Navigator.of(context).pop();
+            },
             child: Text('Đóng'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                currentStep = 0;
-                selectedDate = null;
-                selectedCinema = null;
-                selectedShowtime = null;
-              });
-              Provider.of<BookingProvider>(context, listen: false).resetBookingState();
+              if (mounted) {
+                Navigator.of(context).pop();
+                setState(() {
+                  currentStep = 0;
+                  selectedDate = null;
+                  selectedCinema = null;
+                  selectedShowtime = null;
+                  _isProcessingBooking = false;
+                });
+                Provider.of<BookingProvider>(context, listen: false).resetBookingState();
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
@@ -1619,6 +2159,40 @@ class _BookingScreenState extends State<BookingScreen> {
         ],
       ),
     );
+  }
+
+  void _debugNavigationState() {
+    print('=== DEBUG NAVIGATION STATE ===');
+    print('Current context mounted: $mounted');
+    print('Navigator canPop: ${Navigator.of(context).canPop()}');
+    print('Current route: ${ModalRoute.of(context)?.settings.name}');
+    print('Is processing booking: $_isProcessingBooking');
+    print('Created ticket ID: $_createdTicketId');
+    print('Selected payment method: $selectedPaymentMethod');
+    print('Movie: ${movie?.title}');
+    print('Cinema: ${selectedCinema?.name}');
+    print('Seats: ${Provider.of<BookingProvider>(context, listen: false).selectedSeats}');
+    print('==============================');
+  }
+
+// Method để clear tất cả state và reset
+  void _resetAllBookingState() {
+    print('Resetting all booking state...');
+
+    setState(() {
+      _isProcessingBooking = false;
+      _createdTicketId = null;
+      currentStep = 0;
+      selectedDate = null;
+      selectedCinema = null;
+      selectedShowtime = null;
+      selectedPaymentMethod = 'cash';
+    });
+
+    final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+    bookingProvider.resetBookingState();
+
+    print('State reset completed');
   }
 
   void _navigateToHome(BuildContext context) {
@@ -1666,3 +2240,4 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 }
+

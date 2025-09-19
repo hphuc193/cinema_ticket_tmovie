@@ -1,6 +1,7 @@
 // lib/screens/movie_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../providers/movie_provider.dart';
 import '../models/movie_model.dart';
 import '../widgets/rating_display.dart';
@@ -18,6 +19,10 @@ class MovieDetailScreen extends StatefulWidget {
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
   Movie? movie;
   bool _isLoading = true;
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  bool _isVideoPlaying = false;
+  bool _showPlayButton = true;
 
   @override
   void initState() {
@@ -33,6 +38,59 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       movie = loadedMovie;
       _isLoading = false;
     });
+
+    // Initialize video controller if trailer URL exists
+    if (movie != null && movie!.trailerUrl.isNotEmpty) {
+      _initializeVideo();
+    }
+  }
+
+  _initializeVideo() async {
+    try {
+      _videoController = VideoPlayerController.network(movie!.trailerUrl);
+      await _videoController!.initialize();
+      setState(() {
+        _isVideoInitialized = true;
+      });
+
+      // Listen for video end
+      _videoController!.addListener(() {
+        if (_videoController!.value.position >= _videoController!.value.duration) {
+          setState(() {
+            _isVideoPlaying = false;
+            _showPlayButton = true;
+          });
+          _videoController!.seekTo(Duration.zero);
+        }
+      });
+    } catch (e) {
+      print('Error initializing video: $e');
+      setState(() {
+        _isVideoInitialized = false;
+      });
+    }
+  }
+
+  _toggleVideo() {
+    if (_videoController != null && _isVideoInitialized) {
+      setState(() {
+        if (_isVideoPlaying) {
+          _videoController!.pause();
+          _isVideoPlaying = false;
+          _showPlayButton = true;
+        } else {
+          _videoController!.play();
+          _isVideoPlaying = true;
+          _showPlayButton = false;
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -54,32 +112,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            expandedHeight: 300,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: NetworkImage(movie!.posterUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _buildVideoHeader(),
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.all(16),
@@ -290,7 +323,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             Navigator.pushNamed(
               context,
               '/booking',
-              arguments: movie!.id, // ✅ Chỉ truyền movieId
+              arguments: movie!.id,
             );
           },
           child: Text('Đặt vé'),
@@ -315,6 +348,151 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildVideoHeader() {
+    return SliverAppBar(
+      expandedHeight: 300,
+      pinned: true,
+      flexibleSpace: FlexibleSpaceBar(
+        background: GestureDetector(
+          onTap: _toggleVideo,
+          child: Container(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Video or poster background
+                if (_isVideoInitialized && _videoController != null)
+                  AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: VideoPlayer(_videoController!),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: NetworkImage(movie!.posterUrl),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+
+                // Gradient overlay
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        _isVideoPlaying
+                            ? Colors.black.withOpacity(0.3)
+                            : Colors.black.withOpacity(0.7),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Play button and controls
+                if (_showPlayButton || !_isVideoInitialized)
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        movie!.trailerUrl.isNotEmpty
+                            ? (_isVideoPlaying ? Icons.pause : Icons.play_arrow)
+                            : Icons.movie,
+                        size: 40,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+
+                // Video controls when playing
+                if (_isVideoPlaying && _isVideoInitialized)
+                  Positioned(
+                    bottom: 20,
+                    left: 20,
+                    right: 20,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: _toggleVideo,
+                            child: Icon(
+                              _isVideoPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: VideoProgressIndicator(
+                              _videoController!,
+                              allowScrubbing: true,
+                              colors: VideoProgressColors(
+                                playedColor: Theme.of(context).primaryColor,
+                                bufferedColor: Colors.white.withOpacity(0.3),
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            _formatDuration(_videoController!.value.position) +
+                                ' / ' +
+                                _formatDuration(_videoController!.value.duration),
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Trailer label
+                if (movie!.trailerUrl.isNotEmpty)
+                  Positioned(
+                    top: 100,
+                    left: 20,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'TRAILER',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
   Widget _buildStatusChip(String status) {

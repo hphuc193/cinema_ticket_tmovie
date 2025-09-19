@@ -9,6 +9,7 @@ import '../models/ticket_model.dart';
 import '../widgets/ticket_card.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Để sử dụng Timestamp
 
 class MyTicketsScreen extends StatefulWidget {
   @override
@@ -352,7 +353,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Hiển thị ID vé dưới dạng text với tính năng sao chép
+                      // ID Vé với tính năng sao chép
                       _buildCopyableDetailRow(
                         icon: Icons.tag,
                         label: 'ID Vé',
@@ -362,34 +363,52 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
 
                       SizedBox(height: 20),
 
-                      // Hiển thị ID vé dưới dạng mã vạch
+                      // Mã vạch
                       _buildBarcodeSection(ticket.id),
 
                       SizedBox(height: 20),
 
-                      if (ticket.movie != null) ...[
-                        _buildDetailRow(
-                          icon: Icons.movie,
-                          label: 'Phim',
-                          value: ticket.movie!.title,
-                          isTitle: true,
-                        ),
-                        SizedBox(height: 12),
-                      ],
-                      if (ticket.cinema != null) ...[
-                        _buildDetailRow(
-                          icon: Icons.location_on,
-                          label: 'Rạp',
-                          value: ticket.cinema!.name,
-                        ),
-                        SizedBox(height: 12),
-                      ],
+                      // MOVIE TITLE - Ưu tiên từ ticket document
+                      _buildDetailRow(
+                        icon: Icons.movie,
+                        label: 'Phim',
+                        value: _getMovieTitle(ticket),
+                        isTitle: true,
+                      ),
+                      SizedBox(height: 12),
+
+                      // CINEMA NAME - Ưu tiên từ ticket document
+                      _buildDetailRow(
+                        icon: Icons.location_on,
+                        label: 'Rạp',
+                        value: _getCinemaName(ticket),
+                      ),
+                      SizedBox(height: 12),
+
+                      // SHOW DATE & TIME - Từ ticket document
+                      _buildDetailRow(
+                        icon: Icons.calendar_today,
+                        label: 'Ngày chiếu',
+                        value: _getShowDate(ticket),
+                      ),
+                      SizedBox(height: 12),
+
+                      _buildDetailRow(
+                        icon: Icons.access_time,
+                        label: 'Giờ chiếu',
+                        value: _getShowTime(ticket),
+                      ),
+                      SizedBox(height: 12),
+
+                      // SEATS
                       _buildDetailRow(
                         icon: Icons.event_seat,
                         label: 'Ghế',
                         value: ticket.seats.join(', '),
                       ),
                       SizedBox(height: 12),
+
+                      // PRICE
                       _buildDetailRow(
                         icon: Icons.attach_money,
                         label: 'Giá',
@@ -397,12 +416,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
                         valueColor: Colors.green[600],
                       ),
                       SizedBox(height: 12),
+
+                      // PAYMENT METHOD - Fixed
                       _buildDetailRow(
                         icon: Icons.payment,
                         label: 'Phương thức',
                         value: _getPaymentMethodText(ticket.paymentMethod),
                       ),
                       SizedBox(height: 12),
+
+                      // PAYMENT STATUS
                       _buildDetailRow(
                         icon: Icons.info,
                         label: 'Trạng thái',
@@ -410,6 +433,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
                         valueColor: _getStatusColor(ticket.paymentStatus),
                       ),
                       SizedBox(height: 12),
+
+                      // CREATED DATE
                       _buildDetailRow(
                         icon: Icons.schedule,
                         label: 'Ngày đặt',
@@ -440,6 +465,145 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
         ),
       ),
     );
+  }
+
+  String _getMovieTitle(Ticket ticket) {
+    // Thử dùng movie object trước
+    if (ticket.movie != null && ticket.movie!.title.isNotEmpty) {
+      return ticket.movie!.title;
+    }
+
+    // Fallback: thử lấy từ ticket data nếu có
+    try {
+      final ticketData = ticket.toJson();
+      if (ticketData.containsKey('movieTitle') &&
+          ticketData['movieTitle'] != null) {
+        final title = ticketData['movieTitle'].toString().trim();
+        if (title.isNotEmpty && title != 'null') {
+          return title;
+        }
+      }
+    } catch (e) {
+      print('Error getting movieTitle: $e');
+    }
+
+    return 'Phim không xác định';
+  }
+
+  String _getCinemaName(Ticket ticket) {
+    // DEBUG: In ra tất cả thông tin ticket
+    try {
+      final ticketData = ticket.toJson();
+      print('=== TICKET DEBUG ===');
+      print('Ticket ID: ${ticket.id}');
+      print('All ticket fields: $ticketData');
+      print('Has cinemaName field: ${ticketData.containsKey('cinemaName')}');
+      print('CinemaName value: ${ticketData['cinemaName']}');
+      print('Has cinemaId field: ${ticketData.containsKey('cinemaId')}');
+      print('CinemaId value: ${ticketData['cinemaId']}');
+      print('Cinema object: ${ticket.cinema}');
+      print('===================');
+    } catch (e) {
+      print('Debug error: $e');
+    }
+
+    // Thử dùng cinema object trước
+    if (ticket.cinema != null && ticket.cinema!.name.isNotEmpty) {
+      print('✅ Using cinema object: ${ticket.cinema!.name}');
+      return ticket.cinema!.name;
+    }
+
+    // Fallback: thử lấy từ ticket data nếu có
+    try {
+      final ticketData = ticket.toJson();
+      if (ticketData.containsKey('cinemaName') &&
+          ticketData['cinemaName'] != null) {
+        final name = ticketData['cinemaName'].toString().trim();
+        if (name.isNotEmpty && name != 'null') {
+          print('✅ Using cinemaName from ticket: $name');
+          return name;
+        }
+      }
+    } catch (e) {
+      print('Error getting cinemaName: $e');
+    }
+
+    print('❌ No cinema info found, returning default');
+    return 'Rạp không xác định';
+  }
+
+  String _getShowDate(Ticket ticket) {
+    // Thử lấy từ ticket data trước (cho vé mới)
+    try {
+      final ticketData = ticket.toJson();
+      if (ticketData.containsKey('showDate') &&
+          ticketData['showDate'] != null) {
+        final date = ticketData['showDate'].toString().trim();
+        if (date.isNotEmpty && date != 'null') {
+          return date;
+        }
+      }
+    } catch (e) {
+      print('Error getting showDate: $e');
+    }
+
+    // Fallback: dùng showtimeTime (cho vé cũ)
+    try {
+      if (ticket.showtimeTime != null) {
+        DateTime date;
+
+        // Kiểm tra xem showtimeTime là DateTime hay Timestamp
+        if (ticket.showtimeTime is DateTime) {
+          date = ticket.showtimeTime as DateTime;
+        } else {
+          // Nếu là Timestamp, convert sang DateTime
+          date = (ticket.showtimeTime as Timestamp).toDate();
+        }
+
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      print('Error converting showtimeTime to date: $e');
+    }
+
+    return 'Ngày không xác định';
+  }
+
+  String _getShowTime(Ticket ticket) {
+    // Thử lấy từ ticket data trước (cho vé mới)
+    try {
+      final ticketData = ticket.toJson();
+      if (ticketData.containsKey('showTime') &&
+          ticketData['showTime'] != null) {
+        final time = ticketData['showTime'].toString().trim();
+        if (time.isNotEmpty && time != 'null') {
+          return time;
+        }
+      }
+    } catch (e) {
+      print('Error getting showTime: $e');
+    }
+
+    // Fallback: dùng showtimeTime (cho vé cũ)
+    try {
+      if (ticket.showtimeTime != null) {
+        DateTime time;
+
+        // Kiểm tra xem showtimeTime là DateTime hay Timestamp
+        if (ticket.showtimeTime is DateTime) {
+          time = ticket.showtimeTime as DateTime;
+        } else {
+          // Nếu là Timestamp, convert sang DateTime
+          time = (ticket.showtimeTime as Timestamp).toDate();
+        }
+
+        return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      }
+    } catch (e) {
+      print('Error converting showtimeTime to time: $e');
+    }
+
+    return 'Giờ không xác định';
   }
 
   // Widget mới để hiển thị mã vạch
@@ -852,6 +1016,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
         return 'Chuyển khoản';
       case 'e_wallet':
         return 'Ví điện tử';
+      case 'momo':
+        return 'Ví MoMo';
+      case 'paypal':
+        return 'PayPal';
       default:
         return 'Không xác định';
     }

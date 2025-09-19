@@ -59,7 +59,7 @@ class TicketCard extends StatelessWidget {
                   SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      ticket.cinema?.name ?? 'Rạp không xác định',
+                      _getCinemaName(ticket) ?? 'Rạp không xác định',
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 14,
@@ -164,6 +164,48 @@ class TicketCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getCinemaName(Ticket ticket) {
+    // DEBUG: In ra tất cả thông tin ticket
+    try {
+      final ticketData = ticket.toJson();
+      print('=== TICKET DEBUG ===');
+      print('Ticket ID: ${ticket.id}');
+      print('All ticket fields: $ticketData');
+      print('Has cinemaName field: ${ticketData.containsKey('cinemaName')}');
+      print('CinemaName value: ${ticketData['cinemaName']}');
+      print('Has cinemaId field: ${ticketData.containsKey('cinemaId')}');
+      print('CinemaId value: ${ticketData['cinemaId']}');
+      print('Cinema object: ${ticket.cinema}');
+      print('===================');
+    } catch (e) {
+      print('Debug error: $e');
+    }
+
+    // Thử dùng cinema object trước
+    if (ticket.cinema != null && ticket.cinema!.name.isNotEmpty) {
+      print('✅ Using cinema object: ${ticket.cinema!.name}');
+      return ticket.cinema!.name;
+    }
+
+    // Fallback: thử lấy từ ticket data nếu có
+    try {
+      final ticketData = ticket.toJson();
+      if (ticketData.containsKey('cinemaName') &&
+          ticketData['cinemaName'] != null) {
+        final name = ticketData['cinemaName'].toString().trim();
+        if (name.isNotEmpty && name != 'null') {
+          print('✅ Using cinemaName from ticket: $name');
+          return name;
+        }
+      }
+    } catch (e) {
+      print('Error getting cinemaName: $e');
+    }
+
+    print('❌ No cinema info found, returning default');
+    return 'Rạp không xác định';
   }
 
   Widget _buildStatusChip(String status) {

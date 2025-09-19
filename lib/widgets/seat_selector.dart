@@ -68,7 +68,6 @@ class _SeatSelectorState extends State<SeatSelector> {
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
-              _buildDebugPanel(),
               _buildSeatLegend(),
               SizedBox(height: 20),
               Container(
@@ -89,41 +88,7 @@ class _SeatSelectorState extends State<SeatSelector> {
     );
   }
 
-  Widget _buildDebugPanel() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(12),
-      margin: EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.yellow[50],
-        border: Border.all(color: Colors.orange),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('DEBUG INFO:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange[800])),
-          Text('Available seats: ${widget.showtime.availableSeats.length}'),
-          Text('Booked seats: ${widget.showtime.bookedSeats.length}'),
-          if (widget.showtime.availableSeats.isEmpty)
-            Text(
-              'WARNING: No available seats data from Firestore! Using default layout.',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-          if (widget.showtime.availableSeats.isNotEmpty)
-            Text(
-              'Sample available: ${widget.showtime.availableSeats.take(10).join(", ")}',
-              style: TextStyle(fontSize: 10),
-            ),
-          if (widget.showtime.bookedSeats.isNotEmpty)
-            Text(
-              'Sample booked: ${widget.showtime.bookedSeats.take(5).join(", ")}',
-              style: TextStyle(fontSize: 10, color: Colors.red),
-            ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildSeatLegend() {
     return Container(

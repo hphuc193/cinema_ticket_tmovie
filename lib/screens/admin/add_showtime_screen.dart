@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tmovie/models/movie_model.dart';
+import '../../widgets/admin_seat_selector.dart';
 
 class AddShowtimeScreen extends StatefulWidget {
   final String movieId;
@@ -21,9 +22,7 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
   DateTime _selectedDateTime = DateTime.now().add(Duration(hours: 1));
   final _priceController = TextEditingController(text: '60000');
   final _roomIdController = TextEditingController(text: 'Room 1');
-  final _availableSeatsController = TextEditingController(
-      text: 'A1,A2,A3,A4,A5,A6,A7,A8,B1,B2,B3,B4,B5,B6,B7,B8,C1,C2,C3,C4,C5,C6,C7,C8'
-  );
+  List<String> _availableSeats = [];
 
   String? _selectedCinema;
   List<String> _cinemaOptions = [];
@@ -229,26 +228,41 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
             SizedBox(height: 16),
 
             // Danh sách ghế
-            TextFormField(
-              controller: _availableSeatsController,
-              decoration: InputDecoration(
-                labelText: 'Danh sách ghế có sẵn',
-                border: OutlineInputBorder(),
-                hintText: 'A1,A2,A3,B1,B2,B3,C1,C2,C3',
-                helperText: 'Các ghế cách nhau bởi dấu phẩy',
-                prefixIcon: Icon(Icons.event_seat),
+            // Thay thế toàn bộ TextFormField "Danh sách ghế có sẵn" bằng:
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12),
               ),
-              maxLines: 3,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Vui lòng nhập danh sách ghế';
-                }
-                final seats = value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                if (seats.isEmpty) {
-                  return 'Danh sách ghế không hợp lệ';
-                }
-                return null;
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.event_seat, color: Theme.of(context).primaryColor),
+                        SizedBox(width: 8),
+                        Text(
+                          'Cấu hình ghế ngồi',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AdminSeatSelector(
+                    onSeatsChanged: (seats) {
+                      setState(() {
+                        _availableSeats = seats;
+                      });
+                    },
+                    initialAvailableSeats: _availableSeats.isEmpty ? null : _availableSeats,
+                  ),
+                ],
+              ),
             ),
 
             SizedBox(height: 16),
@@ -301,7 +315,7 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
                     _buildInfoRow(
                         Icons.event_seat,
                         'Số ghế:',
-                        '${_availableSeatsController.text.split(',').where((s) => s.trim().isNotEmpty).length} ghế'
+                        '${_availableSeats.length} ghế khả dụng'
                     ),
                   ],
                 ),
@@ -401,21 +415,16 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
     });
 
     try {
-      final availableSeats = _availableSeatsController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
+      print('=== STARTING SHOWTIME SAVE PROCESS ===');
+
+      final availableSeats = _availableSeats;
 
       if (availableSeats.isEmpty) {
-        throw Exception('Danh sách ghế không được để trống');
+        throw Exception('Vui lòng cấu hình ít nhất 1 ghế khả dụng');
       }
 
-      // Tạo cinema ID từ tên rạp
-      final cinemaId = _selectedCinema!
-          .toLowerCase()
-          .replaceAll(' ', '_')
-          .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+      final cinemaId = _selectedCinema!;
+      print('Using cinema ID: $cinemaId');
 
       final showtimeData = {
         'movieId': widget.movieId,
@@ -424,19 +433,26 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
         'roomId': _roomIdController.text.trim(),
         'startTime': Timestamp.fromDate(_selectedDateTime),
         'availableSeats': availableSeats,
-        'bookedSeats': <String>[], // Khởi tạo rỗng
+        'bookedSeats': <String>[],
         'price': double.parse(_priceController.text),
         'createdAt': Timestamp.now(),
       };
 
-      print('Saving showtime: $showtimeData');
+      print('Showtime data to save: $showtimeData');
 
       // Lưu suất chiếu
+      print('Saving showtime to Firestore...');
       final docRef = await FirebaseFirestore.instance
           .collection('showtimes')
           .add(showtimeData);
 
       print('Showtime saved with ID: ${docRef.id}');
+
+      // QUAN TRỌNG: Cập nhật movie_cinemas NGAY SAU KHI LƯU SHOWTIME THÀNH CÔNG
+      print('Now updating movie_cinemas...');
+      await _updateMovieCinemas();
+
+      print('=== SHOWTIME SAVE PROCESS COMPLETED ===');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -477,18 +493,19 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
       );
 
       if (shouldAddMore == true) {
-        // Reset form để thêm suất chiếu mới
         setState(() {
           _selectedDateTime = DateTime.now().add(Duration(hours: 2));
           _roomIdController.text = 'Room 1';
         });
       } else {
-        // Quay về màn hình trước
         Navigator.pop(context);
       }
 
-    } catch (e) {
-      print('Lỗi khi thêm suất chiếu: $e');
+    } catch (e, stackTrace) {
+      print('=== ERROR IN SHOWTIME SAVE PROCESS ===');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -508,11 +525,68 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
     }
   }
 
+  // Thêm method để cập nhật movie_cinemas
+  Future<void> _updateMovieCinemas() async {
+    try {
+      print('=== STARTING _updateMovieCinemas ===');
+      print('Movie ID: ${widget.movieId}');
+      print('Selected Cinema: $_selectedCinema');
+
+      final movieCinemasRef = FirebaseFirestore.instance
+          .collection('movie_cinemas')
+          .doc(widget.movieId);
+
+      print('Checking if document exists...');
+      final doc = await movieCinemasRef.get();
+
+      if (doc.exists) {
+        print('Document EXISTS - updating...');
+        final data = doc.data()!;
+        print('Current document data: $data');
+
+        final currentCinemas = List<String>.from(data['cinemas'] ?? []);
+        print('Current cinemas list: $currentCinemas');
+
+        if (!currentCinemas.contains(_selectedCinema)) {
+          print('Cinema NOT found in list, adding...');
+          currentCinemas.add(_selectedCinema!);
+          print('New cinemas list: $currentCinemas');
+
+          await movieCinemasRef.update({
+            'cinemas': currentCinemas,
+            'updatedAt': Timestamp.now(),
+          });
+          print('Document UPDATED successfully');
+        } else {
+          print('Cinema ALREADY exists in list, no update needed');
+        }
+      } else {
+        print('Document DOES NOT exist - creating new...');
+        final newData = {
+          'movieId': widget.movieId,
+          'cinemas': [_selectedCinema],
+          'updatedAt': Timestamp.now(),
+          'createdAt': Timestamp.now(),
+        };
+        print('Creating document with data: $newData');
+
+        await movieCinemasRef.set(newData);
+        print('New document CREATED successfully');
+      }
+
+      print('=== _updateMovieCinemas COMPLETED SUCCESSFULLY ===');
+    } catch (e, stackTrace) {
+      print('=== ERROR in _updateMovieCinemas ===');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      // Không throw lại để không làm gián đoạn việc tạo showtime
+    }
+  }
+
   @override
   void dispose() {
     _priceController.dispose();
     _roomIdController.dispose();
-    _availableSeatsController.dispose();
     super.dispose();
   }
 }

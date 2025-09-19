@@ -1,6 +1,7 @@
-// lib/main.dart - Đã sửa lỗi
+// lib/main.dart - Đã sửa lỗi và thêm dotenv
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';  // ← Thêm import này
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -21,10 +22,34 @@ import 'screens/help_screen.dart';
 import 'providers/theme_provider.dart';
 // import 'screens/my_reviews_screen.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  //load dotenv
+  try {
+    print('Loading .env file...');
+    await dotenv.load(fileName: ".env");
+    print('.env file loaded successfully');
+
+    //PayPal credentials check
+    final clientId = dotenv.env['PAYPAL_CLIENT_ID'] ?? '';
+    final clientSecret = dotenv.env['PAYPAL_CLIENT_SECRET'] ?? '';
+
+    print('PayPal Client ID loaded: ${clientId.isNotEmpty ? "YES" : "NO"}');
+    print('PayPal Client Secret loaded: ${clientSecret.isNotEmpty ? "YES" : "NO"}');
+
+    if (clientId.isEmpty || clientSecret.isEmpty) {
+      print('WARNING: PayPal credentials not found in .env file');
+    }
+
+  } catch (e) {
+    print('Error loading .env file: $e');
+    print('Make sure .env file exists in project root and is added to pubspec.yaml assets');
+  }
+
+  // Initialize Firebase
   await Firebase.initializeApp();
+
   runApp(MyApp());
 }
 

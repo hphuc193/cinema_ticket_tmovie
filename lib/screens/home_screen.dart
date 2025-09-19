@@ -496,9 +496,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Poster image with enhanced styling
+                  // Poster image với flex được điều chỉnh
                   Expanded(
-                    flex: 4,
+                    flex: 5, // Tăng từ 4 lên 5
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -540,17 +540,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ),
                             // Rating badge
                             Positioned(
-                              top: 12,
-                              right: 12,
+                              top: 8, // Giảm từ 12 xuống 8
+                              right: 8, // Giảm từ 12 xuống 8
                               child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Giảm padding
                                 decoration: BoxDecoration(
                                   color: Colors.amber,
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(15), // Giảm từ 20 xuống 15
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.amber.withOpacity(0.3),
-                                      blurRadius: 8,
+                                      blurRadius: 6, // Giảm từ 8 xuống 6
                                       offset: Offset(0, 2),
                                     ),
                                   ],
@@ -561,14 +561,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     Icon(
                                       Icons.star,
                                       color: Colors.white,
-                                      size: 16,
+                                      size: 14, // Giảm từ 16 xuống 14
                                     ),
-                                    SizedBox(width: 4),
+                                    SizedBox(width: 3), // Giảm từ 4 xuống 3
                                     Text(
                                       movie.rating.toString(),
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 13,
+                                        fontSize: 12, // Giảm từ 13 xuống 12
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -581,27 +581,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                  // Movie info with enhanced styling
+                  // Movie info với flex được điều chỉnh
                   Expanded(
-                    flex: 2,
+                    flex: 3, // Tăng từ 2 lên 3
                     child: Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(10), // Giảm từ 12 xuống 10
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.start, // Thêm dòng này
                         children: [
-                          Text(
-                            movie.title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: isDarkMode ? Colors.white : Colors.grey[800],
+                          Flexible( // Wrap title với Flexible
+                            child: Text(
+                              movie.title,
+                              style: TextStyle(
+                                fontSize: 14, // Giảm từ 15 xuống 14
+                                fontWeight: FontWeight.bold,
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          SizedBox(height: 8),
+                          SizedBox(height: 6), // Giảm từ 8 xuống 6
                           _buildInfoRow(Icons.access_time, '${movie.duration} phút', Colors.blue, isDarkMode),
-                          SizedBox(height: 4),
+                          SizedBox(height: 3), // Giảm từ 4 xuống 3
                           _buildInfoRow(Icons.calendar_today, _formatReleaseDate(movie.releaseDate), Colors.green, isDarkMode),
                         ],
                       ),

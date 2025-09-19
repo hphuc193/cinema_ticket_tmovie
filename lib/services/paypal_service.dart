@@ -13,15 +13,31 @@ class PayPalService {
   static String get _tokenUrl => '$_baseUrl/v1/oauth2/token';
   static String get _paymentUrl => '$_baseUrl/v1/payments/payment';
 
-  /// Lấy access token từ PayPal
+  /// Debug method để kiểm tra credentials
+  void debugCredentials() {
+    print('=== PAYPAL DEBUG ===');
+    print('Client ID: ${_clientId.isNotEmpty ? "${_clientId.substring(0, 8)}..." : "EMPTY"}');
+    print('Client Secret: ${_clientSecret.isNotEmpty ? "${_clientSecret.substring(0, 8)}..." : "EMPTY"}');
+    print('Token URL: $_tokenUrl');
+    print('Payment URL: $_paymentUrl');
+    print('==================');
+  }
+
+  /// Lấy access token từ PayPal với debug chi tiết
   Future<String?> getAccessToken() async {
+    debugCredentials();
+
     try {
       if (_clientId.isEmpty || _clientSecret.isEmpty) {
-        debugPrint('❌ PayPal credentials missing in .env');
+        print('❌ PayPal credentials missing in .env');
+        print('- Client ID empty: ${_clientId.isEmpty}');
+        print('- Client Secret empty: ${_clientSecret.isEmpty}');
         return null;
       }
 
+      print('🔄 Getting access token...');
       final credentials = base64Encode(utf8.encode('$_clientId:$_clientSecret'));
+      print('✓ Credentials encoded');
 
       final response = await http.post(
         Uri.parse(_tokenUrl),
@@ -34,20 +50,40 @@ class PayPalService {
         body: 'grant_type=client_credentials',
       );
 
+      print('📨 Token request sent');
+      print('📈 Status code: ${response.statusCode}');
+      print('📋 Response headers: ${response.headers}');
+      print('📝 Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['access_token'];
+        final token = data['access_token'];
+        print('✅ Access token obtained successfully');
+        print('🎫 Token: ${token?.substring(0, 20)}...');
+        return token;
       } else {
-        debugPrint('❌ Failed to get token: ${response.body}');
+        print('❌ Failed to get token');
+        print('Status: ${response.statusCode}');
+        print('Body: ${response.body}');
+
+        // Parse error details
+        try {
+          final errorData = json.decode(response.body);
+          print('Error name: ${errorData['error']}');
+          print('Error description: ${errorData['error_description']}');
+        } catch (e) {
+          print('Could not parse error response: $e');
+        }
         return null;
       }
-    } catch (e) {
-      debugPrint('❌ Exception getting token: $e');
+    } catch (e, stackTrace) {
+      print('❌ Exception getting token: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
 
-  /// Tạo một payment mới
+  /// Tạo một payment mới với debug chi tiết
   Future<Map<String, dynamic>?> createPayment({
     required double amount,
     required String currency,
@@ -55,9 +91,30 @@ class PayPalService {
     required String returnUrl,
     required String cancelUrl,
   }) async {
+    print('🚀 Creating payment...');
+    print('💰 Amount: $amount $currency');
+    print('📝 Description: $description');
+    print('🔗 Return URL: $returnUrl');
+    print('❌ Cancel URL: $cancelUrl');
+
     try {
       final accessToken = await getAccessToken();
-      if (accessToken == null) throw Exception('No access token');
+      if (accessToken == null) {
+        print('❌ No access token - cannot create payment');
+        throw Exception('No access token');
+      }
+
+      print('✅ Access token obtained, creating payment...');
+
+      // Validate amount
+      if (amount <= 0) {
+        print('❌ Invalid amount: $amount');
+        throw Exception('Amount must be greater than 0');
+      }
+
+      // Format amount to 2 decimal places
+      final formattedAmount = amount.toStringAsFixed(2);
+      print('💰 Formatted amount: $formattedAmount');
 
       final paymentData = {
         'intent': 'sale',
@@ -65,7 +122,7 @@ class PayPalService {
         'transactions': [
           {
             'amount': {
-              'total': amount.toStringAsFixed(2),
+              'total': formattedAmount,
               'currency': currency,
             },
             'description': description,
@@ -77,6 +134,8 @@ class PayPalService {
         },
       };
 
+      print('📦 Payment data: ${json.encode(paymentData)}');
+
       final response = await http.post(
         Uri.parse(_paymentUrl),
         headers: {
@@ -86,14 +145,36 @@ class PayPalService {
         body: json.encode(paymentData),
       );
 
+      print('📨 Payment request sent');
+      print('📈 Status code: ${response.statusCode}');
+      print('📋 Response headers: ${response.headers}');
+      print('📝 Response body: ${response.body}');
+
       if (response.statusCode == 201) {
-        return json.decode(response.body);
+        final responseData = json.decode(response.body);
+        print('✅ Payment created successfully');
+        print('🆔 Payment ID: ${responseData['id']}');
+        print('🔗 Approval URL: ${getApprovalUrl(responseData)}');
+        return responseData;
       } else {
-        debugPrint('❌ Failed to create payment: ${response.body}');
+        print('❌ Failed to create payment');
+        print('Status: ${response.statusCode}');
+        print('Body: ${response.body}');
+
+        // Parse error details
+        try {
+          final errorData = json.decode(response.body);
+          print('Error name: ${errorData['name']}');
+          print('Error message: ${errorData['message']}');
+          print('Error details: ${errorData['details']}');
+        } catch (e) {
+          print('Could not parse error response: $e');
+        }
         return null;
       }
-    } catch (e) {
-      debugPrint('❌ Exception creating payment: $e');
+    } catch (e, stackTrace) {
+      print('❌ Exception creating payment: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -103,12 +184,19 @@ class PayPalService {
     required String paymentId,
     required String payerId,
   }) async {
+    print('⚡ Executing payment...');
+    print('🆔 Payment ID: $paymentId');
+    print('👤 Payer ID: $payerId');
+
     try {
       final accessToken = await getAccessToken();
       if (accessToken == null) throw Exception('No access token');
 
       final executeUrl = '$_paymentUrl/$paymentId/execute';
       final executeData = {'payer_id': payerId};
+
+      print('🔗 Execute URL: $executeUrl');
+      print('📦 Execute data: ${json.encode(executeData)}');
 
       final response = await http.post(
         Uri.parse(executeUrl),
@@ -119,14 +207,24 @@ class PayPalService {
         body: json.encode(executeData),
       );
 
+      print('📨 Execute request sent');
+      print('📈 Status code: ${response.statusCode}');
+      print('📝 Response body: ${response.body}');
+
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final responseData = json.decode(response.body);
+        print('✅ Payment executed successfully');
+        print('📊 State: ${responseData['state']}');
+        return responseData;
       } else {
-        debugPrint('❌ Failed to execute payment: ${response.body}');
+        print('❌ Failed to execute payment');
+        print('Status: ${response.statusCode}');
+        print('Body: ${response.body}');
         return null;
       }
-    } catch (e) {
-      debugPrint('❌ Exception executing payment: $e');
+    } catch (e, stackTrace) {
+      print('❌ Exception executing payment: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -138,21 +236,50 @@ class PayPalService {
       if (links != null) {
         for (var link in links) {
           if (link['rel'] == 'approval_url') {
-            return link['href'];
+            final approvalUrl = link['href'];
+            print('🔗 Approval URL found: $approvalUrl');
+            return approvalUrl;
           }
         }
       }
+      print('❌ No approval URL found in payment response');
       return null;
     } catch (e) {
-      debugPrint('❌ Exception getting approval URL: $e');
+      print('❌ Exception getting approval URL: $e');
       return null;
     }
   }
 
-  /// Chuyển đổi tiền VND → USD
+  /// Chuyển đổi tiền VND → USD với debug
   double convertVndToUsd(double vndAmount) {
     const double exchangeRate = 24300.0;
     final usdAmount = vndAmount / exchangeRate;
-    return usdAmount < 0.01 ? 0.01 : double.parse(usdAmount.toStringAsFixed(2));
+    final finalAmount = usdAmount < 0.01 ? 0.01 : double.parse(usdAmount.toStringAsFixed(2));
+
+    print('💱 Currency conversion:');
+    print('  VND: ${vndAmount.toStringAsFixed(0)}');
+    print('  Rate: $exchangeRate');
+    print('  USD (raw): ${usdAmount.toStringAsFixed(4)}');
+    print('  USD (final): $finalAmount');
+
+    return finalAmount;
+  }
+
+  /// Test method để kiểm tra kết nối PayPal
+  Future<bool> testConnection() async {
+    print('🔧 Testing PayPal connection...');
+    try {
+      final token = await getAccessToken();
+      if (token != null) {
+        print('✅ PayPal connection test successful');
+        return true;
+      } else {
+        print('❌ PayPal connection test failed');
+        return false;
+      }
+    } catch (e) {
+      print('❌ PayPal connection test error: $e');
+      return false;
+    }
   }
 }

@@ -32,6 +32,9 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
   final _genresController = TextEditingController();
   final _customCinemaController = TextEditingController();
 
+  String _posterInputMethod = 'upload'; // 'upload' hoặc 'url'
+  String _trailerInputMethod = 'upload'; // 'upload' hoặc 'url'
+
   String _selectedStatus = 'now_showing';
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
@@ -86,6 +89,14 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
       _selectedStatus = widget.movie!.status;
       _selectedDate = widget.movie!.releaseDate;
 
+      // Khởi tạo input method dựa trên dữ liệu có sẵn
+      if (widget.movie!.posterUrl.isNotEmpty) {
+        _posterInputMethod = 'url';
+      }
+      if (widget.movie!.trailerUrl.isNotEmpty) {
+        _trailerInputMethod = 'url';
+      }
+
       _loadSelectedCinemas();
     }
 
@@ -126,6 +137,8 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
         setState(() {
           _selectedPosterFile = File(image.path);
           _isUploadingPoster = true;
+          // Clear URL khi chọn upload từ máy
+          _posterUrlController.clear();
         });
 
         // Upload to Firebase Storage
@@ -174,6 +187,8 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
         setState(() {
           _selectedTrailerFile = File(result.files.single.path!);
           _isUploadingTrailer = true;
+          // Clear URL khi chọn upload từ máy
+          _trailerUrlController.clear();
         });
 
         // Upload to Firebase Storage
@@ -403,60 +418,195 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
-                if (_selectedPosterFile != null) ...[
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      image: DecorationImage(
-                        image: FileImage(_selectedPosterFile!),
-                        fit: BoxFit.cover,
+                SizedBox(height: 16),
+
+                // Toggle buttons for poster input method
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _posterInputMethod = 'upload'),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _posterInputMethod == 'upload'
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                                bottomLeft: Radius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.upload_file,
+                                  color: _posterInputMethod == 'upload'
+                                      ? Colors.white
+                                      : Colors.grey[600],
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Tải từ máy',
+                                  style: TextStyle(
+                                    color: _posterInputMethod == 'upload'
+                                        ? Colors.white
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _posterInputMethod = 'url'),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _posterInputMethod == 'url'
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(8),
+                                bottomRight: Radius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.link,
+                                  color: _posterInputMethod == 'url'
+                                      ? Colors.white
+                                      : Colors.grey[600],
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Nhập URL',
+                                  style: TextStyle(
+                                    color: _posterInputMethod == 'url'
+                                        ? Colors.white
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 16),
+
+                // Show content based on selected method
+                if (_posterInputMethod == 'upload') ...[
+                  if (_selectedPosterFile != null) ...[
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        image: DecorationImage(
+                          image: FileImage(_selectedPosterFile!),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
+                    SizedBox(height: 12),
+                  ],
+                  ElevatedButton.icon(
+                    onPressed: _isUploadingPoster ? null : _pickAndUploadPoster,
+                    icon: _isUploadingPoster
+                        ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : Icon(Icons.upload),
+                    label: Text(_isUploadingPoster ? 'Đang tải...' : 'Chọn poster từ máy'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      minimumSize: Size(double.infinity, 48),
+                    ),
                   ),
-                  SizedBox(height: 12),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploadingPoster ? null : _pickAndUploadPoster,
-                        icon: _isUploadingPoster
-                            ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                            : Icon(Icons.upload),
-                        label: Text(_isUploadingPoster ? 'Đang tải...' : 'Chọn poster'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                ] else ...[
+                  _buildTextField(
+                    controller: _posterUrlController,
+                    label: 'Nhập URL poster',
+                    icon: Icons.link,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Vui lòng nhập URL poster';
+                      }
+                      final uri = Uri.tryParse(value);
+                      if (uri == null || !uri.hasAbsolutePath) {
+                        return 'URL không hợp lệ';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (_posterUrlController.text.isNotEmpty) ...[
+                    SizedBox(height: 12),
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          _posterUrlController.text,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey.shade100,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Không thể tải ảnh từ URL',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
                           ),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey.shade100,
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
                   ],
-                ),
-                SizedBox(height: 12),
-                Text('Hoặc nhập URL poster:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                SizedBox(height: 8),
-                _buildTextField(
-                  controller: _posterUrlController,
-                  label: 'URL poster',
-                  icon: Icons.link,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Vui lòng chọn poster hoặc nhập URL';
-                    }
-                    return null;
-                  },
-                ),
+                ],
               ],
             ),
           ),
@@ -487,62 +637,188 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
-                if (_selectedTrailerFile != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.video_file, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _selectedTrailerFile!.path.split('/').last,
-                            style: TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ],
-                    ),
+                SizedBox(height: 16),
+
+                // Toggle buttons for trailer input method
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                  SizedBox(height: 12),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isUploadingTrailer ? null : _pickAndUploadTrailer,
-                        icon: _isUploadingTrailer
-                            ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                            : Icon(Icons.upload),
-                        label: Text(_isUploadingTrailer ? 'Đang tải...' : 'Chọn trailer'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _trailerInputMethod = 'upload'),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _trailerInputMethod == 'upload'
+                                  ? Colors.orange
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                                bottomLeft: Radius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.upload_file,
+                                  color: _trailerInputMethod == 'upload'
+                                      ? Colors.white
+                                      : Colors.grey[600],
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Tải từ máy',
+                                  style: TextStyle(
+                                    color: _trailerInputMethod == 'upload'
+                                        ? Colors.white
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _trailerInputMethod = 'url'),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _trailerInputMethod == 'url'
+                                  ? Colors.orange
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(8),
+                                bottomRight: Radius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.link,
+                                  color: _trailerInputMethod == 'url'
+                                      ? Colors.white
+                                      : Colors.grey[600],
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Nhập URL',
+                                  style: TextStyle(
+                                    color: _trailerInputMethod == 'url'
+                                        ? Colors.white
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 16),
+
+                // Show content based on selected method
+                if (_trailerInputMethod == 'upload') ...[
+                  if (_selectedTrailerFile != null) ...[
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.video_file, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedTrailerFile!.path.split('/').last,
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                  ],
+                  ElevatedButton.icon(
+                    onPressed: _isUploadingTrailer ? null : _pickAndUploadTrailer,
+                    icon: _isUploadingTrailer
+                        ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : Icon(Icons.upload),
+                    label: Text(_isUploadingTrailer ? 'Đang tải...' : 'Chọn trailer từ máy'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      minimumSize: Size(double.infinity, 48),
+                    ),
+                  ),
+                ] else ...[
+                  _buildTextField(
+                    controller: _trailerUrlController,
+                    label: 'Nhập URL trailer (YouTube, Vimeo, hoặc link trực tiếp)',
+                    icon: Icons.link,
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        final uri = Uri.tryParse(value);
+                        if (uri == null || !uri.hasAbsolutePath) {
+                          return 'URL không hợp lệ';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                  if (_trailerUrlController.text.isNotEmpty) ...[
+                    SizedBox(height: 12),
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.link, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'URL trailer đã nhập: ${_trailerUrlController.text}',
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-                SizedBox(height: 12),
-                Text('Hoặc nhập URL trailer:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                SizedBox(height: 8),
-                _buildTextField(
-                  controller: _trailerUrlController,
-                  label: 'URL trailer',
-                  icon: Icons.link,
-                ),
+                ],
               ],
             ),
           ),
@@ -897,6 +1173,29 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
 
   Future<void> _saveMovie() async {
     if (_formKey.currentState!.validate()) {
+      // Kiểm tra poster - phải có ít nhất một cách (upload hoặc URL)
+      if (_posterInputMethod == 'upload') {
+        if (_selectedPosterFile == null && _posterUrlController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Vui lòng chọn poster từ máy'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      } else if (_posterInputMethod == 'url') {
+        if (_posterUrlController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Vui lòng nhập URL poster'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
       if (_selectedCinemas.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -911,14 +1210,18 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
         _isLoading = true;
       });
 
+      // Determine final URLs to use
+      String finalPosterUrl = _posterUrlController.text;
+      String finalTrailerUrl = _trailerUrlController.text;
+
       final movie = Movie(
-          id: widget.movie?.id ?? '',
-          title: _titleController.text,
-          description:_descriptionController.text,
+        id: widget.movie?.id ?? '',
+        title: _titleController.text,
+        description: _descriptionController.text,
         duration: int.parse(_durationController.text),
         rating: double.parse(_ratingController.text),
-        posterUrl: _posterUrlController.text,
-        trailerUrl: _trailerUrlController.text,
+        posterUrl: finalPosterUrl,
+        trailerUrl: finalTrailerUrl,
         director: _directorController.text,
         cast: _castController.text.split(',').map((e) => e.trim()).toList(),
         genres: _genresController.text.split(',').map((e) => e.trim()).toList(),
@@ -930,9 +1233,21 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
         final movieProvider = Provider.of<MovieProvider>(context, listen: false);
 
         if (widget.movie == null) {
-          // Thêm phim mới
-          await movieProvider.addMovie(movie);
-          await _saveCinemaMapping(movie.id);
+          // FIXED: Nhận Movie với ID mới từ addMovie
+          print('=== ADDING NEW MOVIE ===');
+          print('Movie before adding: ${movie.toJson()}');
+
+          final addedMovie = await movieProvider.addMovie(movie);
+
+          if (addedMovie == null) {
+            throw Exception('Không thể thêm phim. Vui lòng thử lại.');
+          }
+
+          print('Movie after adding: ${addedMovie.toJson()}');
+          print('Generated Movie ID: "${addedMovie.id}"');
+
+          // Lưu cinema mapping với ID mới
+          await _saveCinemaMapping(addedMovie.id);
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -952,7 +1267,7 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
             ),
           );
 
-          // Điều hướng đến màn hình thêm suất chiếu
+          // Hỏi có muốn thêm suất chiếu không
           final shouldAddShowtime = await showDialog<bool>(
             context: context,
             builder: (BuildContext context) {
@@ -989,18 +1304,30 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
           );
 
           if (shouldAddShowtime == true) {
+            print('=== NAVIGATING TO AddShowtimeScreen ===');
+            print('Using Movie ID: "${addedMovie.id}"');
+
+            // FIXED: Sử dụng addedMovie với ID đã có
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => AddShowtimeScreen(movie: movie, movieId: '',),
+                builder: (context) => AddShowtimeScreen(
+                  movieId: addedMovie.id,  // <- Sử dụng ID từ addedMovie
+                  movie: addedMovie,       // <- Sử dụng addedMovie
+                  availableCinemas: _selectedCinemas,
+                ),
               ),
             );
           } else {
             Navigator.pop(context);
           }
         } else {
-          // Cập nhật phim
-          await movieProvider.updateMovie(movie);
+          // Cập nhật phim hiện có
+          final success = await movieProvider.updateMovie(movie);
+          if (!success) {
+            throw Exception('Không thể cập nhật phim. Vui lòng thử lại.');
+          }
+
           await _saveCinemaMapping(movie.id);
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1023,6 +1350,9 @@ class _AddMovieScreenState extends State<AddMovieScreen> with TickerProviderStat
           Navigator.pop(context);
         }
       } catch (e) {
+        print('=== ERROR IN _saveMovie ===');
+        print('Error: $e');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(

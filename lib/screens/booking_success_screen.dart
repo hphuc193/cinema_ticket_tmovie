@@ -395,6 +395,8 @@ class BookingSuccessScreen extends StatelessWidget {
         return 'Ví MoMo';
       case 'card':
         return 'Thẻ ngân hàng';
+      case 'paypal':
+        return 'PayPal';
       default:
         return 'Không xác định';
     }

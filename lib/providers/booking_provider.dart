@@ -62,73 +62,60 @@ class BookingProvider with ChangeNotifier {
     try {
       print('Loading cinemas for movieId: $movieId');
 
-      final showtimesSnapshot = await _firestore
-          .collection('showtimes')
-          .where('movieId', isEqualTo: movieId)
-          .where('startTime', isGreaterThan: Timestamp.now())
+      // FIXED: Truy vấn movie_cinemas collection bằng movieId
+      final movieCinemasDoc = await _firestore
+          .collection('movie_cinemas')
+          .doc(movieId) // Sử dụng movieId làm document ID
           .get();
 
-      if (showtimesSnapshot.docs.isEmpty) {
-        print('No showtimes found for movie: $movieId');
+      if (!movieCinemasDoc.exists) {
+        print('No cinema data found for movie: $movieId');
         _cinemas = [];
         notifyListeners();
         return [];
       }
 
-      final Set<String> cinemaIds = showtimesSnapshot.docs
-          .map((doc) => doc.data()['cinemaId']?.toString())
-          .where((id) => id != null && id.isNotEmpty)
-          .cast<String>()
-          .toSet();
-
-      print('Found cinema IDs: $cinemaIds');
-
-      if (cinemaIds.isEmpty) {
-        print('No cinema IDs found in showtimes');
+      final movieCinemasData = movieCinemasDoc.data();
+      if (movieCinemasData == null || movieCinemasData['cinemas'] == null) {
+        print('No cinemas field found in movie_cinemas document');
         _cinemas = [];
         notifyListeners();
         return [];
       }
 
+      // Lấy danh sách cinema names từ field 'cinemas'
+      final cinemaNames = List<String>.from(movieCinemasData['cinemas']);
+      print('Found cinema names: $cinemaNames');
+
+      if (cinemaNames.isEmpty) {
+        print('Cinema names list is empty');
+        _cinemas = [];
+        notifyListeners();
+        return [];
+      }
+
+      // Tạo danh sách Cinema objects
       final List<Cinema> cinemaList = [];
 
-      for (String cinemaId in cinemaIds) {
-        try {
-          final cinemaDoc = await _firestore
-              .collection('movie_cinemas')
-              .doc(cinemaId)
-              .get();
+      for (int i = 0; i < cinemaNames.length; i++) {
+        final cinemaName = cinemaNames[i];
 
-          if (cinemaDoc.exists) {
-            final data = cinemaDoc.data()!;
-            final cinema = Cinema.fromJson({
-              'id': cinemaDoc.id,
-              'name': data['name'] ?? 'Unknown Cinema',
-              'location': data['location'] ?? 'Unknown Location',
-              'rooms': data['rooms'] ?? [],
-            });
-            cinemaList.add(cinema);
-            print('Loaded cinema: ${cinema.name}');
-          } else {
-            print('Cinema $cinemaId not found in movie_cinemas, creating default');
-            final cinema = Cinema.fromJson({
-              'id': cinemaId,
-              'name': 'Cinema $cinemaId',
-              'location': 'Location not available',
-              'rooms': [],
-            });
-            cinemaList.add(cinema);
-          }
-        } catch (e) {
-          print('Error loading cinema $cinemaId: $e');
-          final cinema = Cinema.fromJson({
-            'id': cinemaId,
-            'name': 'Cinema $cinemaId',
-            'location': 'Location not available',
-            'rooms': [],
-          });
-          cinemaList.add(cinema);
-        }
+        // Tạo cinema ID từ tên (hoặc sử dụng index)
+        final cinemaId = cinemaName
+            .toLowerCase()
+            .replaceAll(' ', '_')
+            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+
+        final cinema = Cinema.fromJson({
+          'id': cinemaId,
+          'name': cinemaName,
+          'location': 'Vị trí ${cinemaName}', // Có thể thêm location thực tế sau
+          'rooms': _generateDefaultRooms(), // Tạo rooms mặc định
+          'movieId': movieId,
+        });
+
+        cinemaList.add(cinema);
+        print('Created cinema: ${cinema.name} with ID: ${cinema.id}');
       }
 
       print('Total cinemas loaded: ${cinemaList.length}');
@@ -145,6 +132,30 @@ class BookingProvider with ChangeNotifier {
     }
   }
 
+  // Helper method để tạo rooms mặc định
+  List<Map<String, dynamic>> _generateDefaultRooms() {
+    return [
+      {
+        'roomId': 'room_1',
+        'name': 'Phòng 1',
+        'seatMap': [
+          ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8'],
+          ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8'],
+          ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'],
+        ],
+      },
+      {
+        'roomId': 'room_2',
+        'name': 'Phòng 2',
+        'seatMap': [
+          ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8'],
+          ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8'],
+          ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'],
+        ],
+      }
+    ];
+  }
+
   Future<List<Showtime>> getShowtimesByDateAndCinema(
       String movieId,
       DateTime date,
@@ -153,63 +164,66 @@ class BookingProvider with ChangeNotifier {
     try {
       print('Loading showtimes for movie: $movieId, cinema: $cinemaId, date: $date');
 
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
-
+      // Đầu tiên lấy tất cả showtimes của movie
       final snapshot = await _firestore
           .collection('showtimes')
           .where('movieId', isEqualTo: movieId)
-          .where('startTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-          .where('startTime', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-          .orderBy('startTime')
           .get();
 
-      final showtimes = snapshot.docs
-          .where((doc) => doc.data()['cinemaId'] == cinemaId)
-          .map((doc) {
-        final data = doc.data();
-        return Showtime.fromJson({...data, 'id': doc.id});
-      }).toList();
+      if (snapshot.docs.isEmpty) {
+        print('No showtimes found for movie: $movieId');
+        return [];
+      }
 
-      print('Found ${showtimes.length} showtimes for cinema $cinemaId on ${date.day}/${date.month}');
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
 
-      return showtimes;
-    } catch (e) {
-      print('Error fetching showtimes: $e');
+      final showtimes = <Showtime>[];
 
-      try {
-        print('Trying fallback query...');
-        final fallbackSnapshot = await _firestore
-            .collection('showtimes')
-            .where('movieId', isEqualTo: movieId)
-            .where('cinemaId', isEqualTo: cinemaId)
-            .get();
-
-        final showtimes = fallbackSnapshot.docs
-            .map((doc) {
+      for (var doc in snapshot.docs) {
+        try {
           final data = doc.data();
           final showtime = Showtime.fromJson({...data, 'id': doc.id});
 
-          final showtimeDate = showtime.startTime;
-          if (showtimeDate.year == date.year &&
-              showtimeDate.month == date.month &&
-              showtimeDate.day == date.day) {
-            return showtime;
+          // Filter theo ngày
+          if (showtime.startTime.isAfter(startOfDay) &&
+              showtime.startTime.isBefore(endOfDay)) {
+
+            // FIXED: So sánh cinemaId
+            // Nếu cinemaId từ Firestore là tên cinema, chuyển thành ID format
+            String showtimeCinemaId = data['cinemaId']?.toString() ?? '';
+            String normalizedShowtimeCinemaId = showtimeCinemaId
+                .toLowerCase()
+                .replaceAll(' ', '_')
+                .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+
+            print('Comparing cinema IDs:');
+            print('  Selected cinemaId: $cinemaId');
+            print('  Showtime cinemaId: $showtimeCinemaId');
+            print('  Normalized showtime cinemaId: $normalizedShowtimeCinemaId');
+
+            // So sánh cả tên gốc và tên đã normalize
+            if (showtimeCinemaId == cinemaId ||
+                normalizedShowtimeCinemaId == cinemaId ||
+                showtimeCinemaId.toLowerCase() == cinemaId.toLowerCase()) {
+              showtimes.add(showtime);
+              print('✓ Added showtime: ${showtime.id} at ${showtime.startTime}');
+            }
           }
-          return null;
-        })
-            .where((showtime) => showtime != null)
-            .cast<Showtime>()
-            .toList();
-
-        showtimes.sort((a, b) => a.startTime.compareTo(b.startTime));
-
-        print('Fallback found ${showtimes.length} showtimes');
-        return showtimes;
-      } catch (fallbackError) {
-        print('Fallback also failed: $fallbackError');
-        throw Exception('Không thể tải suất chiếu: $e');
+        } catch (e) {
+          print('Error processing showtime document ${doc.id}: $e');
+          continue;
+        }
       }
+
+      showtimes.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      print('Found ${showtimes.length} showtimes for cinema $cinemaId on ${date.day}/${date.month}');
+      return showtimes;
+
+    } catch (e) {
+      print('Error fetching showtimes: $e');
+      throw Exception('Không thể tải suất chiếu: $e');
     }
   }
 
@@ -278,18 +292,25 @@ class BookingProvider with ChangeNotifier {
   }
 
   // FIXED: Simplified booking method with proper error handling
-  Future<bool> bookTicket({
+  Future<String?> bookTicket({
     required String userId,
     required String movieId,
     required String showtimeId,
     required List<String> seats,
     required double totalPrice,
     required String paymentMethod,
+    // THÊM CÁC PARAMETERS MỚI:
+    String? cinemaId,
+    String? cinemaName,
+    String? movieTitle,
   }) async {
     print('=== BOOKING PROCESS STARTED ===');
     print('User ID: $userId');
     print('Movie ID: $movieId');
     print('Showtime ID: $showtimeId');
+    print('Cinema ID: $cinemaId');
+    print('Cinema Name: $cinemaName');
+    print('Movie Title: $movieTitle');
     print('Seats: $seats');
     print('Total Price: $totalPrice');
     print('Payment Method: $paymentMethod');
@@ -302,27 +323,30 @@ class BookingProvider with ChangeNotifier {
       // Input validation
       if (!_validateBookingInput(userId, movieId, showtimeId, seats)) {
         print('Input validation failed');
-        return false;
+        return null;
       }
 
       // Get fresh showtime data
       final currentShowtime = await _getLatestShowtimeData(showtimeId);
       if (currentShowtime == null) {
         _setError('Suất chiếu không tồn tại hoặc đã bị hủy');
-        return false;
+        return null;
       }
 
       print('Current showtime data loaded successfully');
-      print('Available seats: ${currentShowtime.availableSeats}');
-      print('Booked seats: ${currentShowtime.bookedSeats}');
 
       // Verify seat availability
       if (!_validateSeatAvailability(seats, currentShowtime)) {
-        return false;
+        return null;
       }
 
-      // Execute booking transaction
-      final success = await _executeBookingTransaction(
+      // LẤY THÔNG TIN SHOWTIME ĐỂ TẠO showDate và showTime
+      final startTime = currentShowtime.startTime;
+      final showDate = '${startTime.day}/${startTime.month}/${startTime.year}';
+      final showTime = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+
+      // Execute booking transaction and RETURN ticket ID
+      final ticketId = await _executeBookingTransactionUpdated(
         userId: userId,
         movieId: movieId,
         showtimeId: showtimeId,
@@ -330,25 +354,31 @@ class BookingProvider with ChangeNotifier {
         totalPrice: totalPrice,
         paymentMethod: paymentMethod,
         currentShowtime: currentShowtime,
+        // THÊM CÁC PARAMETERS MỚI:
+        cinemaId: cinemaId,
+        cinemaName: cinemaName,
+        movieTitle: movieTitle,
+        showDate: showDate,
+        showTime: showTime,
       );
 
-      if (success) {
+      if (ticketId != null) {
         print('=== BOOKING COMPLETED SUCCESSFULLY ===');
+        print('Created ticket ID: $ticketId');
         // Clear selected seats after successful booking
         _selectedSeats.clear();
         notifyListeners();
-        return true;
+        return ticketId;
       } else {
         print('=== BOOKING FAILED ===');
-        return false;
+        return null;
       }
 
     } catch (e) {
       print('=== BOOKING ERROR ===');
       print('Error: $e');
-      print('Stack trace: ${StackTrace.current}');
       _setError('Có lỗi xảy ra trong quá trình đặt vé: ${e.toString()}');
-      return false;
+      return null;
     }
   }
 
@@ -426,7 +456,101 @@ class BookingProvider with ChangeNotifier {
     return true;
   }
 
-  Future<bool> _executeBookingTransaction({
+  Future<String?> _executeBookingTransactionUpdated({
+    required String userId,
+    required String movieId,
+    required String showtimeId,
+    required List<String> seats,
+    required double totalPrice,
+    required String paymentMethod,
+    required Showtime currentShowtime,
+    String? cinemaId,
+    String? cinemaName,
+    String? movieTitle,
+    String? showDate,
+    String? showTime,
+  }) async {
+    try {
+      print('Starting Firestore transaction...');
+
+      final result = await _firestore.runTransaction<String?>((transaction) async {
+        print('Inside transaction - re-checking showtime...');
+
+        final showtimeRef = _firestore.collection('showtimes').doc(showtimeId);
+        final showtimeSnapshot = await transaction.get(showtimeRef);
+
+        if (!showtimeSnapshot.exists) {
+          throw Exception('Suất chiếu không tồn tại');
+        }
+
+        final transactionShowtime = Showtime.fromJson({
+          ...showtimeSnapshot.data()!,
+          'id': showtimeSnapshot.id
+        });
+
+        // Final seat availability check within transaction
+        for (String seat in seats) {
+          if (!transactionShowtime.isSeatAvailable(seat)) {
+            throw Exception('Ghế $seat đã được đặt trong lúc bạn đang thực hiện giao dịch');
+          }
+        }
+
+        print('Transaction - All seats still available, proceeding...');
+
+        // Create ticket document với đầy đủ thông tin
+        final ticketRef = _firestore.collection('tickets').doc();
+        final ticketData = {
+          'id': ticketRef.id,
+          'userId': userId,
+          'movieId': movieId,
+          'movieTitle': movieTitle, // THÊM
+          'showtimeId': showtimeId,
+          'cinemaId': cinemaId,     // THÊM
+          'cinemaName': cinemaName, // THÊM
+          'showDate': showDate,     // THÊM
+          'showTime': showTime,     // THÊM
+          'seats': seats,
+          'totalPrice': totalPrice,
+          'paymentStatus': paymentMethod == 'cash' ? 'pending' : 'completed',
+          'paymentMethod': paymentMethod,
+          'createdAt': Timestamp.now(),
+          'updatedAt': Timestamp.now(),
+          'status': 'active',
+        };
+
+        print('Creating ticket with enhanced data: $ticketData');
+
+        transaction.set(ticketRef, ticketData);
+
+        // Update showtime seats
+        final updatedBooked = List<String>.from(transactionShowtime.bookedSeats)..addAll(seats);
+        final updatedAvailable = List<String>.from(transactionShowtime.availableSeats);
+
+        for (String seat in seats) {
+          updatedAvailable.remove(seat);
+        }
+
+        transaction.update(showtimeRef, {
+          'bookedSeats': updatedBooked,
+          'availableSeats': updatedAvailable,
+          'updatedAt': Timestamp.now(),
+        });
+
+        print('Transaction completed successfully');
+        return ticketRef.id;
+      });
+
+      print('Transaction result: $result');
+      return result;
+
+    } catch (e) {
+      print('Transaction failed: $e');
+      _setError(e.toString().replaceAll('Exception: ', ''));
+      return null;
+    }
+  }
+
+  Future<String?> _executeBookingTransaction({
     required String userId,
     required String movieId,
     required String showtimeId,
@@ -438,7 +562,7 @@ class BookingProvider with ChangeNotifier {
     try {
       print('Starting Firestore transaction...');
 
-      final result = await _firestore.runTransaction<bool>((transaction) async {
+      final result = await _firestore.runTransaction<String?>((transaction) async {
         print('Inside transaction - re-checking showtime...');
 
         final showtimeRef = _firestore.collection('showtimes').doc(showtimeId);
@@ -504,7 +628,7 @@ class BookingProvider with ChangeNotifier {
         });
 
         print('Transaction completed successfully');
-        return true;
+        return ticketRef.id; // RETURN ticket ID instead of bool
       });
 
       print('Transaction result: $result');
@@ -524,7 +648,7 @@ class BookingProvider with ChangeNotifier {
         _setError(e.toString().replaceAll('Exception: ', ''));
       }
 
-      return false;
+      return null;
     }
   }
 
