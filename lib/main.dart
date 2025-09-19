@@ -1,7 +1,7 @@
 // lib/main.dart - Đã sửa lỗi và thêm dotenv
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';  // ← Thêm import này
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -106,4 +106,5 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
+
 }
