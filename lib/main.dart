@@ -1,7 +1,7 @@
-// lib/main.dart - Đã sửa lỗi và thêm dotenv
+// lib/main.dart
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';  // ← Thêm import này
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -20,7 +20,6 @@ import 'utils/app_theme.dart';
 import 'screens/settings_screen.dart';
 import 'screens/help_screen.dart';
 import 'providers/theme_provider.dart';
-// import 'screens/my_reviews_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +79,6 @@ class MyApp extends StatelessWidget {
           '/admin_dashboard': (context) => AdminDashboard(),
           '/settings': (context) => SettingsScreen(),
           '/help': (context) => HelpScreen(),
-          // '/my-reviews': (context) => MyReviewsScreen(),
         },
         onGenerateRoute: (settings) {
           switch (settings.name) {
