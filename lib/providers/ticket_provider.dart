@@ -92,10 +92,10 @@ class TicketProvider with ChangeNotifier {
             'cinema': cinema?.toJson(),
             'showtimeTime': showtimeTime,
             // THÊM CÁC DÒNG NÀY để preserve data từ ticket document:
-            'movieTitle': data['movieTitle'], // Giữ nguyên movieTitle từ ticket
-            'cinemaName': data['cinemaName'], // Giữ nguyên cinemaName từ ticket
-            'showDate': data['showDate'],     // Giữ nguyên showDate từ ticket
-            'showTime': data['showTime'],     // Giữ nguyên showTime từ ticket
+            'movieTitle': data['movieTitle'], 
+            'cinemaName': data['cinemaName'], 
+            'showDate': data['showDate'],   
+            'showTime': data['showTime'],    
           });
 
           _tickets.add(ticket);
@@ -200,4 +200,5 @@ class TicketProvider with ChangeNotifier {
       print('Test error: $e');
     }
   }
+
 }

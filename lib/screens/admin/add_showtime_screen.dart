@@ -227,8 +227,6 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
 
             SizedBox(height: 16),
 
-            // Danh sách ghế
-            // Thay thế toàn bộ TextFormField "Danh sách ghế có sẵn" bằng:
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey.shade300),
@@ -448,7 +446,7 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
 
       print('Showtime saved with ID: ${docRef.id}');
 
-      // QUAN TRỌNG: Cập nhật movie_cinemas NGAY SAU KHI LƯU SHOWTIME THÀNH CÔNG
+      //Cập nhật movie_cinemas NGAY SAU KHI LƯU SHOWTIME THÀNH CÔNG
       print('Now updating movie_cinemas...');
       await _updateMovieCinemas();
 
@@ -589,4 +587,5 @@ class _AddShowtimeScreenState extends State<AddShowtimeScreen> {
     _roomIdController.dispose();
     super.dispose();
   }
+
 }

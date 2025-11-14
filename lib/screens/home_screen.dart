@@ -588,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       padding: EdgeInsets.all(10), // Giảm từ 12 xuống 10
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start, // Thêm dòng này
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           Flexible( // Wrap title với Flexible
                             child: Text(
@@ -673,4 +673,5 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         break;
     }
   }
+
 }
