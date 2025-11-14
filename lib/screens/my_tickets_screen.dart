@@ -2,14 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:barcode_widget/barcode_widget.dart'; // Thêm import này
+import 'package:barcode_widget/barcode_widget.dart';
 import '../providers/ticket_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/ticket_model.dart';
 import '../widgets/ticket_card.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Để sử dụng Timestamp
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   @override
@@ -18,14 +19,13 @@ class MyTicketsScreen extends StatefulWidget {
 
 class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _currentIndex = 1; // Vé của tôi tab
+  int _currentIndex = 1;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
 
-    // Tải danh sách vé khi khởi tạo
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<TicketProvider>(context, listen: false).fetchUserTickets();
     });
@@ -40,65 +40,40 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final ticketProvider = Provider.of<TicketProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Text(
-          'Vé của tôi',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(50),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.indigo,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              labelStyle: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+      backgroundColor: isDarkMode ? Color(0xFF121212) : Color(0xFFF8F9FA),
+      body: CustomScrollView(
+        slivers: [
+          _buildModernSliverAppBar(isDarkMode),
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
-              unselectedLabelStyle: TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: 14,
+              child: Column(
+                children: [
+                  SizedBox(height: 10),
+                  _buildModernTabBar(isDarkMode),
+                  Container(
+                    height: MediaQuery.of(context).size.height - 250,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildTicketList(ticketProvider.getTicketsByStatus('upcoming'), isDarkMode),
+                        _buildTicketList(ticketProvider.getTicketsByStatus('used'), isDarkMode),
+                        _buildTicketList(ticketProvider.getTicketsByStatus('cancelled'), isDarkMode),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              tabs: [
-                Tab(text: 'Chưa Thanh Toán'),
-                Tab(text: 'Đã Thanh Toán'),
-                Tab(text: 'Đã Hủy'),
-              ],
             ),
           ),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => ticketProvider.refreshTickets(),
-        color: Colors.indigo,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildTicketList(ticketProvider.getTicketsByStatus('upcoming')),
-            _buildTicketList(ticketProvider.getTicketsByStatus('used')),
-            _buildTicketList(ticketProvider.getTicketsByStatus('cancelled')),
-          ],
-        ),
+        ],
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentIndex,
@@ -112,25 +87,200 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildTicketList(List<Ticket> tickets) {
+  Widget _buildModernSliverAppBar(bool isDarkMode) {
+    return SliverAppBar(
+      expandedHeight: 110,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDarkMode
+                  ? [Color(0xFF1E1E1E), Color(0xFF2A2A2A)]
+                  : [Theme.of(context).primaryColor, Theme.of(context).primaryColor.withOpacity(0.8)],
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Icon(
+                          Icons.confirmation_number_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Vé của tôi',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Quản lý vé xem phim',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.85),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernTabBar(bool isDarkMode) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Color(0xFF2A2A2A) : Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.3)
+                : Colors.grey.withOpacity(0.5),
+            blurRadius: 10,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(4),
+      child: TabBar(
+        controller: _tabController,
+        indicatorColor: Colors.transparent,
+        dividerColor: Colors.transparent,
+        labelPadding: EdgeInsets.zero,
+        indicator: BoxDecoration(
+          color: isDarkMode ? Color(0xFF3A3A3A) : Colors.grey[300],
+          borderRadius: BorderRadius.circular(16),
+          // border: Border.all(
+          //   color: Colors.black,
+          //   width: 2.5,
+          // ),
+          // boxShadow: [
+          //   BoxShadow(
+          //     color: isDarkMode
+          //         ? Colors.black.withOpacity(0.9)
+          //         : Colors.grey.withOpacity(0.9),
+          //     blurRadius: 8,
+          //     offset: Offset(0, 1),
+          //   ),
+          // ],
+        ),
+        labelColor: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+        unselectedLabelColor: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 16,
+        ),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.schedule, size: 18),
+                SizedBox(width: 16),
+                Text('Pending'),
+
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, size: 18),
+                SizedBox(width: 16),
+                Text('Completed'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cancel, size: 18),
+                SizedBox(width: 16),
+                Text('Cancelled'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTicketList(List<Ticket> tickets, bool isDarkMode) {
     final ticketProvider = Provider.of<TicketProvider>(context);
 
     if (ticketProvider.isLoading) {
       return Container(
-        color: Colors.grey[100],
+        color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? Colors.white.withOpacity(0.05)
+                      : Theme.of(context).primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+                  ),
+                  strokeWidth: 3,
+                ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 20),
               Text(
                 'Đang tải vé...',
                 style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 16,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -141,61 +291,57 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
 
     if (ticketProvider.error != null) {
       return Container(
-        color: Colors.grey[100],
+        color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(32),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: EdgeInsets.all(20),
+                  padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.red[50],
+                    color: Colors.red.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.error_outline,
-                    size: 48,
+                    Icons.error_outline_rounded,
+                    size: 56,
                     color: Colors.red[400],
                   ),
                 ),
-                SizedBox(height: 20),
+                SizedBox(height: 24),
                 Text(
                   'Có lỗi xảy ra',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
+                    color: isDarkMode ? Colors.white : Colors.grey[800],
                   ),
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 12),
                 Text(
                   ticketProvider.error!,
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                     fontSize: 14,
+                    height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 24),
-                ElevatedButton(
+                SizedBox(height: 32),
+                ElevatedButton.icon(
                   onPressed: () => ticketProvider.fetchUserTickets(),
+                  icon: Icon(Icons.refresh_rounded, size: 20),
+                  label: Text('Thử lại'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    backgroundColor: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+                    foregroundColor: isDarkMode ? Colors.black : Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh, size: 20),
-                      SizedBox(width: 8),
-                      Text('Thử lại'),
-                    ],
+                    elevation: 0,
                   ),
                 ),
               ],
@@ -207,60 +353,59 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
 
     if (tickets.isEmpty) {
       return Container(
-        color: Colors.grey[100],
+        color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(32),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: EdgeInsets.all(20),
+                  padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
+                    color: isDarkMode
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.grey[100],
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.confirmation_number_outlined,
-                    size: 48,
-                    color: Colors.grey[500],
-                  ),
-                ),
-                SizedBox(height: 20),
-                Text(
-                  'Chưa có vé nào',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Hãy đặt vé xem phim để trải nghiệm',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
+                    size: 56,
+                    color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
                   ),
                 ),
                 SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                Text(
+                  'Chưa có vé nào',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.grey[800],
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.local_movies, size: 20),
-                      SizedBox(width: 8),
-                      Text('Đặt vé ngay'),
-                    ],
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Hãy đặt vé xem phim để trải nghiệm\nnhững bộ phim tuyệt vời',
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+                  icon: Icon(Icons.local_movies_rounded, size: 20),
+                  label: Text('Đặt vé ngay'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+                    foregroundColor: isDarkMode ? Colors.black : Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
                   ),
                 ),
               ],
@@ -270,195 +415,419 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
       );
     }
 
-    return Container(
-      color: Colors.grey[100],
-      child: ListView.builder(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
-        itemCount: tickets.length,
-        itemBuilder: (context, index) {
-          final ticket = tickets[index];
-          return Container(
-            margin: EdgeInsets.only(bottom: 12),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TicketCard(
-                ticket: ticket,
-                onTap: () => _showTicketDetail(ticket),
-                // Cho phép hủy vé cả khi pending và completed
-                onCancel: (ticket.paymentStatus == 'completed' || ticket.paymentStatus == 'pending')
-                    ? () => _cancelTicket(ticket)
-                    : null,
-              ),
-            ),
-          );
-        },
+    return RefreshIndicator(
+      onRefresh: () => ticketProvider.refreshTickets(),
+      color: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+      child: Container(
+        color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
+        child: ListView.builder(
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
+          itemCount: tickets.length,
+          itemBuilder: (context, index) {
+            final ticket = tickets[index];
+            return _buildModernTicketCard(ticket, index, isDarkMode);
+          },
+        ),
       ),
     );
   }
 
-  void _showTicketDetail(Ticket ticket) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+  Widget _buildModernTicketCard(Ticket ticket, int index, bool isDarkMode) {
+    return TweenAnimationBuilder(
+      duration: Duration(milliseconds: 400 + (index * 100)),
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      builder: (context, double value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isDarkMode ? Color(0xFF2A2A2A) : Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.5),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-          ),
-          padding: EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _showTicketDetail(ticket),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.confirmation_number,
-                      color: Colors.indigo,
-                      size: 24,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Chi tiết vé',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      // ID Vé với tính năng sao chép
-                      _buildCopyableDetailRow(
-                        icon: Icons.tag,
-                        label: 'ID Vé',
-                        value: ticket.id,
-                        onCopy: () => _copyToClipboard(ticket.id, 'ID vé đã được sao chép'),
+                      // Status badge
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(ticket.paymentStatus).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getStatusIcon(ticket.paymentStatus),
+                              size: 14,
+                              color: _getStatusColor(ticket.paymentStatus),
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              _getStatusText(ticket.paymentStatus),
+                              style: TextStyle(
+                                color: _getStatusColor(ticket.paymentStatus),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-
-                      SizedBox(height: 20),
-
-                      // Mã vạch
-                      _buildBarcodeSection(ticket.id),
-
-                      SizedBox(height: 20),
-
-                      // MOVIE TITLE - Ưu tiên từ ticket document
-                      _buildDetailRow(
-                        icon: Icons.movie,
-                        label: 'Phim',
-                        value: _getMovieTitle(ticket),
-                        isTitle: true,
-                      ),
-                      SizedBox(height: 12),
-
-                      // CINEMA NAME - Ưu tiên từ ticket document
-                      _buildDetailRow(
-                        icon: Icons.location_on,
-                        label: 'Rạp',
-                        value: _getCinemaName(ticket),
-                      ),
-                      SizedBox(height: 12),
-
-                      // SHOW DATE & TIME - Từ ticket document
-                      _buildDetailRow(
-                        icon: Icons.calendar_today,
-                        label: 'Ngày chiếu',
-                        value: _getShowDate(ticket),
-                      ),
-                      SizedBox(height: 12),
-
-                      _buildDetailRow(
-                        icon: Icons.access_time,
-                        label: 'Giờ chiếu',
-                        value: _getShowTime(ticket),
-                      ),
-                      SizedBox(height: 12),
-
-                      // SEATS
-                      _buildDetailRow(
-                        icon: Icons.event_seat,
-                        label: 'Ghế',
-                        value: ticket.seats.join(', '),
-                      ),
-                      SizedBox(height: 12),
-
-                      // PRICE
-                      _buildDetailRow(
-                        icon: Icons.attach_money,
-                        label: 'Giá',
-                        value: '${NumberFormat('#,###').format(ticket.totalPrice)} VND',
-                        valueColor: Colors.green[600],
-                      ),
-                      SizedBox(height: 12),
-
-                      // PAYMENT METHOD - Fixed
-                      _buildDetailRow(
-                        icon: Icons.payment,
-                        label: 'Phương thức',
-                        value: _getPaymentMethodText(ticket.paymentMethod),
-                      ),
-                      SizedBox(height: 12),
-
-                      // PAYMENT STATUS
-                      _buildDetailRow(
-                        icon: Icons.info,
-                        label: 'Trạng thái',
-                        value: _getStatusText(ticket.paymentStatus),
-                        valueColor: _getStatusColor(ticket.paymentStatus),
-                      ),
-                      SizedBox(height: 12),
-
-                      // CREATED DATE
-                      _buildDetailRow(
-                        icon: Icons.schedule,
-                        label: 'Ngày đặt',
-                        value: DateFormat('dd/MM/yyyy HH:mm').format(ticket.createdAt),
+                      Spacer(),
+                      // Ticket ID
+                      Text(
+                        '#${ticket.id.substring(0, 8)}',
+                        style: TextStyle(
+                          color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ],
                   ),
+                  SizedBox(height: 16),
+                  // Movie title
+                  Text(
+                    _getMovieTitle(ticket),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : Colors.grey[800],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 12),
+                  // Info rows
+                  _buildTicketInfoRow(
+                    Icons.location_on_outlined,
+                    _getCinemaName(ticket),
+                    isDarkMode,
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTicketInfoRow(
+                          Icons.calendar_today_outlined,
+                          _getShowDate(ticket),
+                          isDarkMode,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTicketInfoRow(
+                          Icons.access_time_outlined,
+                          _getShowTime(ticket),
+                          isDarkMode,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTicketInfoRow(
+                          Icons.event_seat_outlined,
+                          ticket.seats.join(', '),
+                          isDarkMode,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${NumberFormat('#,###').format(ticket.totalPrice)} ₫',
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Action buttons
+                  if (ticket.paymentStatus == 'completed' || ticket.paymentStatus == 'pending')
+                    Padding(
+                      padding: EdgeInsets.only(top: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _cancelTicket(ticket),
+                              icon: Icon(Icons.close_rounded, size: 18),
+                              label: Text('Hủy vé'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showTicketDetail(ticket),
+                              icon: Icon(Icons.qr_code_rounded, size: 18),
+                              label: Text('Chi tiết'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+                                foregroundColor: isDarkMode ? Colors.black : Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTicketInfoRow(IconData icon, String text, bool isDarkMode) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
+        ),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'completed':
+        return Icons.check_circle_rounded;
+      case 'pending':
+        return Icons.schedule_rounded;
+      case 'cancelled':
+        return Icons.cancel_rounded;
+      default:
+        return Icons.help_outline_rounded;
+    }
+  }
+
+  void _showTicketDetail(Ticket ticket) {
+    final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              // Header
+              Padding(
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.white.withOpacity(0.1)
+                            : Theme.of(context).primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.confirmation_number_rounded,
+                        color: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+                        size: 24,
+                      ),
                     ),
-                    child: Text(
-                      'Đóng',
-                      style: TextStyle(color: Colors.grey[600]),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Chi tiết vé',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.grey[800],
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 32),
+              // Content
+              Expanded(
+                child: ListView(
+                  controller: controller,
+                  padding: EdgeInsets.fromLTRB(24, 0, 24, 32),
+                  children: [
+                    // Barcode section
+                    _buildModernBarcodeSection(ticket.id, isDarkMode),
+                    SizedBox(height: 24),
+
+                    // Ticket info
+                    _buildDetailSection(
+                      'Thông tin phim',
+                      [
+                        _buildModernDetailRow(
+                          Icons.movie_outlined,
+                          'Tên phim',
+                          _getMovieTitle(ticket),
+                          isDarkMode,
+                          isTitle: true,
+                        ),
+                        _buildModernDetailRow(
+                          Icons.location_on_outlined,
+                          'Rạp chiếu',
+                          _getCinemaName(ticket),
+                          isDarkMode,
+                        ),
+                      ],
+                      isDarkMode,
+                    ),
+
+                    SizedBox(height: 20),
+
+                    _buildDetailSection(
+                      'Thời gian & Ghế',
+                      [
+                        _buildModernDetailRow(
+                          Icons.calendar_today_outlined,
+                          'Ngày chiếu',
+                          _getShowDate(ticket),
+                          isDarkMode,
+                        ),
+                        _buildModernDetailRow(
+                          Icons.access_time_outlined,
+                          'Giờ chiếu',
+                          _getShowTime(ticket),
+                          isDarkMode,
+                        ),
+                        _buildModernDetailRow(
+                          Icons.event_seat_outlined,
+                          'Ghế ngồi',
+                          ticket.seats.join(', '),
+                          isDarkMode,
+                        ),
+                      ],
+                      isDarkMode,
+                    ),
+
+                    SizedBox(height: 20),
+
+                    _buildDetailSection(
+                      'Thanh toán',
+                      [
+                        _buildModernDetailRow(
+                          Icons.attach_money_rounded,
+                          'Tổng tiền',
+                          '${NumberFormat('#,###').format(ticket.totalPrice)} VND',
+                          isDarkMode,
+                          valueColor: Colors.green[600],
+                        ),
+                        _buildModernDetailRow(
+                          Icons.payment_rounded,
+                          'Phương thức',
+                          _getPaymentMethodText(ticket.paymentMethod),
+                          isDarkMode,
+                        ),
+                        _buildModernDetailRow(
+                          Icons.info_outline_rounded,
+                          'Trạng thái',
+                          _getStatusText(ticket.paymentStatus),
+                          isDarkMode,
+                          valueColor: _getStatusColor(ticket.paymentStatus),
+                        ),
+                        _buildModernDetailRow(
+                          Icons.schedule_rounded,
+                          'Ngày đặt',
+                          DateFormat('dd/MM/yyyy HH:mm').format(ticket.createdAt),
+                          isDarkMode,
+                        ),
+                      ],
+                      isDarkMode,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -467,13 +836,173 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
     );
   }
 
+  Widget _buildDetailSection(String title, List<Widget> children, bool isDarkMode) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Color(0xFF2A2A2A) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : Colors.grey[800],
+            ),
+          ),
+          SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernBarcodeSection(String ticketId, bool isDarkMode) {
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Color(0xFF2A2A2A) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
+          width: 1,
+        ),
+      ),
+      child: Column(
+          children: [
+      // Barcode
+      Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 100,
+            child: BarcodeWidget(
+              barcode: Barcode.code128(),
+              data: ticketId,
+              drawText: false,
+              color: Colors.black,
+              backgroundColor: Colors.white,
+            ),
+          ),
+          SizedBox(height: 12),
+          Text(
+            ticketId,
+            style: TextStyle(
+              fontSize: 12,
+              fontFamily: 'monospace',
+              color: Colors.grey[700],
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
+      ),
+    ),
+    SizedBox(height: 16),
+    // Copy button
+    OutlinedButton.icon(
+    onPressed: () => _copyToClipboard(ticketId, 'Mã vạch đã được sao chép'),
+    icon: Icon(Icons.copy_rounded, size: 18),
+    label: Text('Sao chép mã vạch'),
+    style: OutlinedButton.styleFrom(foregroundColor: isDarkMode ? Colors.white : Theme.of(context).primaryColor,
+      side: BorderSide(
+        color: isDarkMode
+            ? Colors.grey[700]!
+            : Theme.of(context).primaryColor.withOpacity(0.3),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+    ),
+            SizedBox(height: 12),
+            // Instructions
+            Text(
+              'Vui lòng xuất trình mã vạch này khi vào rạp',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+      ),
+    );
+  }
+
+  Widget _buildModernDetailRow(
+      IconData icon,
+      String label,
+      String value,
+      bool isDarkMode, {
+        Color? valueColor,
+        bool isTitle = false,
+      }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.grey[200],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isTitle ? 16 : 15,
+                    color: valueColor ?? (isDarkMode ? Colors.white : Colors.grey[800]),
+                    fontWeight: isTitle ? FontWeight.bold : FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getMovieTitle(Ticket ticket) {
-    // Thử dùng movie object trước
     if (ticket.movie != null && ticket.movie!.title.isNotEmpty) {
       return ticket.movie!.title;
     }
 
-    // Fallback: thử lấy từ ticket data nếu có
     try {
       final ticketData = ticket.toJson();
       if (ticketData.containsKey('movieTitle') &&
@@ -491,36 +1020,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
   }
 
   String _getCinemaName(Ticket ticket) {
-    // DEBUG: In ra tất cả thông tin ticket
-    try {
-      final ticketData = ticket.toJson();
-      print('=== TICKET DEBUG ===');
-      print('Ticket ID: ${ticket.id}');
-      print('All ticket fields: $ticketData');
-      print('Has cinemaName field: ${ticketData.containsKey('cinemaName')}');
-      print('CinemaName value: ${ticketData['cinemaName']}');
-      print('Has cinemaId field: ${ticketData.containsKey('cinemaId')}');
-      print('CinemaId value: ${ticketData['cinemaId']}');
-      print('Cinema object: ${ticket.cinema}');
-      print('===================');
-    } catch (e) {
-      print('Debug error: $e');
-    }
-
-    // Thử dùng cinema object trước
     if (ticket.cinema != null && ticket.cinema!.name.isNotEmpty) {
-      print('Using cinema object: ${ticket.cinema!.name}');
       return ticket.cinema!.name;
     }
 
-    // Fallback: thử lấy từ ticket data nếu có
     try {
       final ticketData = ticket.toJson();
       if (ticketData.containsKey('cinemaName') &&
           ticketData['cinemaName'] != null) {
         final name = ticketData['cinemaName'].toString().trim();
         if (name.isNotEmpty && name != 'null') {
-          print('Using cinemaName from ticket: $name');
           return name;
         }
       }
@@ -528,12 +1037,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
       print('Error getting cinemaName: $e');
     }
 
-    print('No cinema info found, returning default');
     return 'Rạp không xác định';
   }
 
   String _getShowDate(Ticket ticket) {
-    // Thử lấy từ ticket data trước (cho vé mới)
     try {
       final ticketData = ticket.toJson();
       if (ticketData.containsKey('showDate') &&
@@ -547,19 +1054,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
       print('Error getting showDate: $e');
     }
 
-    // Fallback: dùng showtimeTime (cho vé cũ)
     try {
       if (ticket.showtimeTime != null) {
         DateTime date;
-
-        // Kiểm tra xem showtimeTime là DateTime hay Timestamp
         if (ticket.showtimeTime is DateTime) {
           date = ticket.showtimeTime as DateTime;
         } else {
-          // Nếu là Timestamp, convert sang DateTime
           date = (ticket.showtimeTime as Timestamp).toDate();
         }
-
         return '${date.day}/${date.month}/${date.year}';
       }
     } catch (e) {
@@ -570,7 +1072,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
   }
 
   String _getShowTime(Ticket ticket) {
-    // Thử lấy từ ticket data trước (cho vé mới)
     try {
       final ticketData = ticket.toJson();
       if (ticketData.containsKey('showTime') &&
@@ -584,19 +1085,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
       print('Error getting showTime: $e');
     }
 
-    // Fallback: dùng showtimeTime (cho vé cũ)
     try {
       if (ticket.showtimeTime != null) {
         DateTime time;
-
-        // Kiểm tra xem showtimeTime là DateTime hay Timestamp
         if (ticket.showtimeTime is DateTime) {
           time = ticket.showtimeTime as DateTime;
         } else {
-          // Nếu là Timestamp, convert sang DateTime
           time = (ticket.showtimeTime as Timestamp).toDate();
         }
-
         return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
       }
     } catch (e) {
@@ -606,320 +1102,89 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
     return 'Giờ không xác định';
   }
 
-  // Widget mới để hiển thị mã vạch
-  Widget _buildBarcodeSection(String ticketId) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.indigo[100],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  Icons.qr_code,
-                  size: 16,
-                  color: Colors.indigo[600],
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(
-                'Mã vạch vé',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-
-          // Container chứa mã vạch
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Column(
-              children: [
-                // Mã vạch
-                Container(
-                  height: 80,
-                  child: BarcodeWidget(
-                    barcode: Barcode.code128(),
-                    data: ticketId,
-                    drawText: false, // Không hiển thị text dưới mã vạch
-                    color: Colors.black,
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 8),
-
-                // Text ID dưới mã vạch với font monospace
-                Text(
-                  ticketId,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    color: Colors.grey[700],
-                    letterSpacing: 1.0,
-                  ),
-                ),
-
-                SizedBox(height: 12),
-
-                // Nút sao chép mã vạch
-                InkWell(
-                  onTap: () => _copyToClipboard(ticketId, 'Mã vạch đã được sao chép'),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.indigo[200]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.copy,
-                          size: 16,
-                          color: Colors.indigo[600],
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Sao chép mã',
-                          style: TextStyle(
-                            color: Colors.indigo[600],
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          SizedBox(height: 8),
-
-          // Hướng dẫn sử dụng
-          Text(
-            'Vui lòng xuất trình mã vạch này khi vào rạp',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    Color? valueColor,
-    bool isTitle = false,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            icon,
-            size: 16,
-            color: Colors.grey[600],
-          ),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: isTitle ? 16 : 14,
-                  color: valueColor ?? Colors.grey[800],
-                  fontWeight: isTitle ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Widget mới cho hiển thị thông tin có thể sao chép
-  Widget _buildCopyableDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    required VoidCallback onCopy,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            icon,
-            size: 16,
-            color: Colors.grey[600],
-          ),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 2),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[800],
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'monospace', // Font monospace để ID dễ đọc hơn
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  InkWell(
-                    onTap: onCopy,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.indigo[50],
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: Colors.indigo[200]!,
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.copy,
-                        size: 16,
-                        color: Colors.indigo[600],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Hàm sao chép vào clipboard
   void _copyToClipboard(String text, String message) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text(message),
+            Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 12),
+            Text(
+              message,
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
           ],
         ),
         backgroundColor: Colors.green,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
         ),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
+        margin: EdgeInsets.all(16),
       ),
     );
   }
 
   Future<void> _cancelTicket(Ticket ticket) async {
+    final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
+        backgroundColor: isDarkMode ? Color(0xFF2A2A2A) : Colors.white,
         title: Row(
           children: [
-            Icon(Icons.warning, color: Colors.orange, size: 24),
-            SizedBox(width: 8),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.warning_rounded,
+                color: Colors.orange,
+                size: 24,
+              ),
+            ),
+            SizedBox(width: 12),
             Text(
               'Xác nhận hủy vé',
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.grey[800],
+              ),
             ),
           ],
         ),
         content: Text(
-          'Bạn có chắc chắn muốn hủy vé xem phim "${ticket.movie?.title ?? 'N/A'}"?\n\nLưu ý: Sau khi hủy, bạn sẽ không thể hoàn tác thao tác này.',
-          style: TextStyle(height: 1.5),
+          'Bạn có chắc chắn muốn hủy vé xem phim "${_getMovieTitle(ticket)}"?\n\nLưu ý: Sau khi hủy, bạn sẽ không thể hoàn tác thao tác này.',
+          style: TextStyle(
+            height: 1.5,
+            fontSize: 14,
+            color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             style: TextButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: Text(
               'Không',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           ElevatedButton(
@@ -927,12 +1192,16 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
+              elevation: 0,
             ),
-            child: Text('Hủy vé'),
+            child: Text(
+              'Hủy vé',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -947,16 +1216,20 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Đã hủy vé thành công'),
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text(
+                  'Đã hủy vé thành công',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
               ],
             ),
             backgroundColor: Colors.green,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.all(16),
           ),
         );
       } else {
@@ -964,16 +1237,20 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.error, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Lỗi khi hủy vé'),
+                Icon(Icons.error_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text(
+                  'Lỗi khi hủy vé',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
               ],
             ),
             backgroundColor: Colors.red,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.all(16),
           ),
         );
       }
@@ -1038,5 +1315,4 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
         break;
     }
   }
-
 }
