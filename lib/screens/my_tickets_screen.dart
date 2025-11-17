@@ -168,7 +168,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
       margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
         color: isDarkMode ? Color(0xFF2A2A2A) : Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDarkMode ? Color(0xFF3A3A3A) : Colors.grey,
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: isDarkMode
@@ -449,7 +453,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with SingleTickerProv
         margin: EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: isDarkMode ? Color(0xFF2A2A2A) : Colors.white,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDarkMode ? Color(0xFF3A3A3A) : Colors.grey,
+            width: 0.9,
+          ),
           boxShadow: [
             BoxShadow(
               color: isDarkMode
