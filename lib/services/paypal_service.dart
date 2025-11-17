@@ -29,13 +29,13 @@ class PayPalService {
 
     try {
       if (_clientId.isEmpty || _clientSecret.isEmpty) {
-        print('❌ PayPal credentials missing in .env');
+        print('PayPal credentials missing in .env');
         print('- Client ID empty: ${_clientId.isEmpty}');
         print('- Client Secret empty: ${_clientSecret.isEmpty}');
         return null;
       }
 
-      print('🔄 Getting access token...');
+      print('Getting access token...');
       final credentials = base64Encode(utf8.encode('$_clientId:$_clientSecret'));
       print('✓ Credentials encoded');
 
@@ -50,19 +50,19 @@ class PayPalService {
         body: 'grant_type=client_credentials',
       );
 
-      print('📨 Token request sent');
-      print('📈 Status code: ${response.statusCode}');
-      print('📋 Response headers: ${response.headers}');
-      print('📝 Response body: ${response.body}');
+      print('Token request sent');
+      print('Status code: ${response.statusCode}');
+      print('Response headers: ${response.headers}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final token = data['access_token'];
-        print('✅ Access token obtained successfully');
-        print('🎫 Token: ${token?.substring(0, 20)}...');
+        print('Access token obtained successfully');
+        print('Token: ${token?.substring(0, 20)}...');
         return token;
       } else {
-        print('❌ Failed to get token');
+        print('Failed to get token');
         print('Status: ${response.statusCode}');
         print('Body: ${response.body}');
 
@@ -77,7 +77,7 @@ class PayPalService {
         return null;
       }
     } catch (e, stackTrace) {
-      print('❌ Exception getting token: $e');
+      print('Exception getting token: $e');
       print('Stack trace: $stackTrace');
       return null;
     }
@@ -91,30 +91,30 @@ class PayPalService {
     required String returnUrl,
     required String cancelUrl,
   }) async {
-    print('🚀 Creating payment...');
-    print('💰 Amount: $amount $currency');
-    print('📝 Description: $description');
-    print('🔗 Return URL: $returnUrl');
-    print('❌ Cancel URL: $cancelUrl');
+    print('Creating payment...');
+    print('Amount: $amount $currency');
+    print('Description: $description');
+    print('Return URL: $returnUrl');
+    print('Cancel URL: $cancelUrl');
 
     try {
       final accessToken = await getAccessToken();
       if (accessToken == null) {
-        print('❌ No access token - cannot create payment');
+        print('No access token - cannot create payment');
         throw Exception('No access token');
       }
 
-      print('✅ Access token obtained, creating payment...');
+      print('Access token obtained, creating payment...');
 
       // Validate amount
       if (amount <= 0) {
-        print('❌ Invalid amount: $amount');
+        print('Invalid amount: $amount');
         throw Exception('Amount must be greater than 0');
       }
 
       // Format amount to 2 decimal places
       final formattedAmount = amount.toStringAsFixed(2);
-      print('💰 Formatted amount: $formattedAmount');
+      print('Formatted amount: $formattedAmount');
 
       final paymentData = {
         'intent': 'sale',
@@ -134,7 +134,7 @@ class PayPalService {
         },
       };
 
-      print('📦 Payment data: ${json.encode(paymentData)}');
+      print('Payment data: ${json.encode(paymentData)}');
 
       final response = await http.post(
         Uri.parse(_paymentUrl),
@@ -145,19 +145,19 @@ class PayPalService {
         body: json.encode(paymentData),
       );
 
-      print('📨 Payment request sent');
-      print('📈 Status code: ${response.statusCode}');
-      print('📋 Response headers: ${response.headers}');
-      print('📝 Response body: ${response.body}');
+      print('Payment request sent');
+      print('Status code: ${response.statusCode}');
+      print('Response headers: ${response.headers}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 201) {
         final responseData = json.decode(response.body);
-        print('✅ Payment created successfully');
-        print('🆔 Payment ID: ${responseData['id']}');
-        print('🔗 Approval URL: ${getApprovalUrl(responseData)}');
+        print('Payment created successfully');
+        print('Payment ID: ${responseData['id']}');
+        print('Approval URL: ${getApprovalUrl(responseData)}');
         return responseData;
       } else {
-        print('❌ Failed to create payment');
+        print('Failed to create payment');
         print('Status: ${response.statusCode}');
         print('Body: ${response.body}');
 
@@ -173,7 +173,7 @@ class PayPalService {
         return null;
       }
     } catch (e, stackTrace) {
-      print('❌ Exception creating payment: $e');
+      print('Exception creating payment: $e');
       print('Stack trace: $stackTrace');
       return null;
     }
@@ -185,8 +185,8 @@ class PayPalService {
     required String payerId,
   }) async {
     print('⚡ Executing payment...');
-    print('🆔 Payment ID: $paymentId');
-    print('👤 Payer ID: $payerId');
+    print('Payment ID: $paymentId');
+    print('Payer ID: $payerId');
 
     try {
       final accessToken = await getAccessToken();
@@ -195,8 +195,8 @@ class PayPalService {
       final executeUrl = '$_paymentUrl/$paymentId/execute';
       final executeData = {'payer_id': payerId};
 
-      print('🔗 Execute URL: $executeUrl');
-      print('📦 Execute data: ${json.encode(executeData)}');
+      print('Execute URL: $executeUrl');
+      print('Execute data: ${json.encode(executeData)}');
 
       final response = await http.post(
         Uri.parse(executeUrl),
@@ -207,23 +207,23 @@ class PayPalService {
         body: json.encode(executeData),
       );
 
-      print('📨 Execute request sent');
-      print('📈 Status code: ${response.statusCode}');
-      print('📝 Response body: ${response.body}');
+      print('xecute request sent');
+      print('Status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        print('✅ Payment executed successfully');
-        print('📊 State: ${responseData['state']}');
+        print('Payment executed successfully');
+        print('State: ${responseData['state']}');
         return responseData;
       } else {
-        print('❌ Failed to execute payment');
+        print('Failed to execute payment');
         print('Status: ${response.statusCode}');
         print('Body: ${response.body}');
         return null;
       }
     } catch (e, stackTrace) {
-      print('❌ Exception executing payment: $e');
+      print('Exception executing payment: $e');
       print('Stack trace: $stackTrace');
       return null;
     }
@@ -242,10 +242,10 @@ class PayPalService {
           }
         }
       }
-      print('❌ No approval URL found in payment response');
+      print('No approval URL found in payment response');
       return null;
     } catch (e) {
-      print('❌ Exception getting approval URL: $e');
+      print('Exception getting approval URL: $e');
       return null;
     }
   }
@@ -271,14 +271,14 @@ class PayPalService {
     try {
       final token = await getAccessToken();
       if (token != null) {
-        print('✅ PayPal connection test successful');
+        print('PayPal connection test successful');
         return true;
       } else {
-        print('❌ PayPal connection test failed');
+        print('PayPal connection test failed');
         return false;
       }
     } catch (e) {
-      print('❌ PayPal connection test error: $e');
+      print('PayPal connection test error: $e');
       return false;
     }
   }
