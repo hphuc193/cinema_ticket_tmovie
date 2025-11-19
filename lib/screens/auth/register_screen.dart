@@ -1,4 +1,3 @@
-// lib/screens/auth/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -16,9 +15,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-
-  // Thêm biến để chọn quyền
-  String _selectedRole = 'user'; // mặc định là user
+  String _selectedRole = 'user';
 
   @override
   void dispose() {
@@ -35,46 +32,82 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1E3A8A),
-              Color(0xFF3B82F6),
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+              Color(0xFF334155),
             ],
           ),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(24),
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.movie,
-                    size: 80,
-                    color: Colors.white,
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Cinema Ticket',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                  // Logo and title
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF3B82F6),
+                          Color(0xFF8B5CF6),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.movie_outlined,
+                      size: 40,
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(height: 40),
+                  SizedBox(height: 20),
+
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [Colors.white, Colors.blue.shade200],
+                    ).createShader(bounds),
+                    child: Text(
+                      'Cinema Ticket',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 32),
+
+                  // Form container with glassmorphism effect
                   Container(
-                    padding: EdgeInsets.all(24),
+                    padding: EdgeInsets.all(28),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1.5,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: Offset(0, 5),
+                          blurRadius: 20,
+                          offset: Offset(0, 10),
                         ),
                       ],
                     ),
@@ -87,20 +120,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             'Đăng ký',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 26,
                               fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
-                          SizedBox(height: 24),
+                          SizedBox(height: 8),
+                          Text(
+                            'Tạo tài khoản mới',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.6),
+                            ),
+                          ),
+                          SizedBox(height: 28),
 
-                          // Họ và tên
+                          // Full name field
                           TextFormField(
                             controller: _fullNameController,
+                            style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Họ và tên',
-                              prefixIcon: Icon(Icons.person),
+                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.person_outline, color: Colors.blue.shade300),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.05),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
                               ),
                             ),
                             validator: (value) {
@@ -112,14 +168,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           SizedBox(height: 16),
 
-                          // Email
+                          // Email field
                           TextFormField(
                             controller: _emailController,
+                            style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Email',
-                              prefixIcon: Icon(Icons.email),
+                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.email_outlined, color: Colors.blue.shade300),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.05),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
                               ),
                             ),
                             keyboardType: TextInputType.emailAddress,
@@ -127,8 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               if (value == null || value.isEmpty) {
                                 return 'Vui lòng nhập email';
                               }
-                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                  .hasMatch(value)) {
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                                 return 'Email không hợp lệ';
                               }
                               return null;
@@ -136,24 +204,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           SizedBox(height: 16),
 
-                          // Mật khẩu
+                          // Password field
                           TextFormField(
                             controller: _passwordController,
+                            style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Mật khẩu',
-                              prefixIcon: Icon(Icons.lock),
+                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade300),
                               suffixIcon: IconButton(
-                                icon: Icon(_obscurePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off),
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     _obscurePassword = !_obscurePassword;
                                   });
                                 },
                               ),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.05),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
                               ),
                             ),
                             obscureText: _obscurePassword,
@@ -169,25 +251,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           SizedBox(height: 16),
 
-                          // Xác nhận mật khẩu
+                          // Confirm password field
                           TextFormField(
                             controller: _confirmPasswordController,
+                            style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Xác nhận mật khẩu',
-                              prefixIcon: Icon(Icons.lock),
+                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade300),
                               suffixIcon: IconButton(
-                                icon: Icon(_obscureConfirmPassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off),
+                                icon: Icon(
+                                  _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
                                 onPressed: () {
                                   setState(() {
-                                    _obscureConfirmPassword =
-                                    !_obscureConfirmPassword;
+                                    _obscureConfirmPassword = !_obscureConfirmPassword;
                                   });
                                 },
                               ),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.05),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
                               ),
                             ),
                             obscureText: _obscureConfirmPassword,
@@ -203,22 +298,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           SizedBox(height: 16),
 
-                          // Chọn quyền
+                          // Role dropdown
                           DropdownButtonFormField<String>(
                             value: _selectedRole,
                             isExpanded: true,
+                            style: TextStyle(color: Colors.white),
+                            dropdownColor: Color(0xFF1E293B),
                             decoration: InputDecoration(
                               labelText: 'Chọn quyền',
-                              prefixIcon: Icon(Icons.admin_panel_settings),
+                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              prefixIcon: Icon(Icons.admin_panel_settings_outlined, color: Colors.blue.shade300),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.05),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
                               ),
                             ),
                             items: [
-                              DropdownMenuItem(
-                                  value: 'user', child: Text('Người dùng')),
-                              DropdownMenuItem(
-                                  value: 'admin', child: Text('Quản trị viên')),
+                              DropdownMenuItem(value: 'user', child: Text('Người dùng')),
+                              DropdownMenuItem(value: 'admin', child: Text('Quản trị viên')),
                             ],
                             onChanged: (value) {
                               setState(() {
@@ -226,33 +333,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               });
                             },
                           ),
-                          SizedBox(height: 24),
+                          SizedBox(height: 28),
 
-                          // Nút đăng ký
+                          // Register button
                           Consumer<AuthProvider>(
                             builder: (context, authProvider, child) {
-                              return ElevatedButton(
-                                onPressed: authProvider.isLoading
-                                    ? null
-                                    : _register,
-                                style: ElevatedButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blue.withOpacity(0.3),
+                                      blurRadius: 15,
+                                      offset: Offset(0, 5),
+                                    ),
+                                  ],
                                 ),
-                                child: authProvider.isLoading
-                                    ? CircularProgressIndicator(
-                                    color: Colors.white)
-                                    : Text('Đăng ký'),
+                                child: ElevatedButton(
+                                  onPressed: authProvider.isLoading ? null : _register,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: authProvider.isLoading
+                                      ? SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                      : Text(
+                                    'Đăng ký',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
                               );
                             },
                           ),
-                          SizedBox(height: 16),
+                          SizedBox(height: 20),
 
-                          // Link đăng nhập
+                          // Login link
                           TextButton(
                             onPressed: () {
                               Navigator.pop(context);
                             },
-                            child: Text('Đã có tài khoản? Đăng nhập ngay'),
+                            child: Text(
+                              'Đã có tài khoản? Đăng nhập ngay',
+                              style: TextStyle(
+                                color: Colors.blue.shade300,
+                                fontSize: 14,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -270,18 +414,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       try {
-        final authProvider =
-        Provider.of<AuthProvider>(context, listen: false);
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.register(
           _emailController.text,
           _passwordController.text,
           _fullNameController.text,
-          _selectedRole, // truyền quyền vào
+          _selectedRole,
         );
         Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red.shade400,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
       }
     }
