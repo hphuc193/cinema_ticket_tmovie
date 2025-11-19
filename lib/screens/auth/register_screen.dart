@@ -97,10 +97,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Container(
                     padding: EdgeInsets.all(28),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withOpacity(0.95),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withOpacity(0.2),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -122,7 +122,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: Color(0xFF1E293B),
                             ),
                           ),
                           SizedBox(height: 8),
@@ -131,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.white.withOpacity(0.6),
+                              color: Colors.grey.shade600,
                             ),
                           ),
                           SizedBox(height: 28),
@@ -142,21 +142,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Họ và tên',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                               prefixIcon: Icon(Icons.person_outline, color: Colors.blue.shade300),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                borderSide: BorderSide(color: Color(0xFF3B82F6), width: 2),
                               ),
                             ),
                             validator: (value) {
@@ -174,21 +173,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Email',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                               prefixIcon: Icon(Icons.email_outlined, color: Colors.blue.shade300),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                borderSide: BorderSide(color: Color(0xFF3B82F6), width: 2),
                               ),
                             ),
                             keyboardType: TextInputType.emailAddress,
@@ -210,7 +208,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Mật khẩu',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                               prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade300),
                               suffixIcon: IconButton(
                                 icon: Icon(
@@ -224,18 +221,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 },
                               ),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                borderSide: BorderSide(color: Color(0xFF3B82F6), width: 2),
                               ),
                             ),
                             obscureText: _obscurePassword,
@@ -257,7 +254,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               labelText: 'Xác nhận mật khẩu',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                               prefixIcon: Icon(Icons.lock_outline, color: Colors.blue.shade300),
                               suffixIcon: IconButton(
                                 icon: Icon(
@@ -271,18 +267,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 },
                               ),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                borderSide: BorderSide(color: Color(0xFF3B82F6), width: 2),
                               ),
                             ),
                             obscureText: _obscureConfirmPassword,
@@ -302,25 +298,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           DropdownButtonFormField<String>(
                             value: _selectedRole,
                             isExpanded: true,
-                            style: TextStyle(color: Colors.white),
-                            dropdownColor: Color(0xFF1E293B),
+                            dropdownColor: Colors.white,
                             decoration: InputDecoration(
                               labelText: 'Chọn quyền',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                               prefixIcon: Icon(Icons.admin_panel_settings_outlined, color: Colors.blue.shade300),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.05),
+                              fillColor: Colors.grey.shade50,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                                borderSide: BorderSide(color: Color(0xFF3B82F6), width: 2),
                               ),
                             ),
                             items: [
